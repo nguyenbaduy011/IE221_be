@@ -28,5 +28,5 @@ class Courses(models.Model):
     # Thời điểm cập nhật bản ghi
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
