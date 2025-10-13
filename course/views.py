@@ -31,3 +31,20 @@ class CourseDetailView(generics.RetrieveAPIView):
             raise NotFound("Course not found")
 
         return course
+
+class CourseSearchView(generics.ListAPIView):
+    serializer_class = CourseSerializer
+
+    def get_queryset(self) -> list:
+        name = self.request.query_params.get('name', '')
+        creator_id = self.request.query_params.get('creator_id', None)
+
+        if creator_id is not None:
+            try:
+                creator_id = int(creator_id)
+            except ValueError:
+                raise NotFound("Invalid 'creator_id' parameter")
+
+        courses = selectors.get_courses_by_name_and_creator(name, creator_id)
+
+        return courses
