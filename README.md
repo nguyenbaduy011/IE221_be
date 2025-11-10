@@ -26,6 +26,7 @@ This is a Django web application project. It provides \[brief description of you
      ```bash
      cp .env.example .env
      ```
+
    - Edit the `.env` file to include your specific configuration (e.g., database credentials, secret key, etc.). Example fields in `.env.example`:
 
      ```
