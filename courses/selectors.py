@@ -1,4 +1,4 @@
-from course.models import Courses
+from courses.models import Courses
 
 # Lấy tất cả các khóa học
 def get_all_courses() -> list[Courses]:
