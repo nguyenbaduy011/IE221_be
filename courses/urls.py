@@ -1,8 +1,9 @@
-from django.urls import path
-from .views import *
+from django.urls import path, include
+from courses.views.supervisor_views import SupervisorCourseListView, SupervisorCourseDetailView
+from courses.views.trainee_views import TraineeCourseDetailView
 
 urlpatterns = [
-    path('courses/', CourseListView.as_view(), name='course-list'), # Đường dẫn để lấy danh sách khóa học
-    path('courses/detail/', CourseDetailView.as_view(), name='course-detail'), # Đường dẫn để lấy chi tiết khóa học theo ID
-    path('courses/search/', CourseSearchView.as_view(), name='course-search'), # Đường dẫn để tìm kiếm khóa học theo tên và người tạo
+    path('api/supervisor/courses/', SupervisorCourseListView.as_view(), name='supervisor-course-list'),
+    path('api/supervisor/courses/<int:pk>/', SupervisorCourseDetailView.as_view(), name='supervisor-course-detail'),
+    path('api/trainee/courses/<int:pk>/', TraineeCourseDetailView.as_view(), name='trainee-course-detail'),
 ]
