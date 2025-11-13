@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from datetime import date
 
-class Courses(models.Model):
+class Course(models.Model):
     class Status(models.IntegerChoices):
         NOT_STARTED = 0, 'Not Started'
         IN_PROGRESS = 1, 'In Progress'
@@ -19,9 +19,15 @@ class Courses(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    course_supervisors = models.ManyToManyField(
+        User,
+        through='CourseSupervisor',
+        related_name='supervised_courses'
+    )
+
     def clean(self):
-        if self.start_date and self.finish_date and self.finish_date < self.start_date:
-            raise ValidationError("Finish date must be after start date.")
+        if self.finish_date < self.start_date:
+            raise ValidationError("Finish date cannot be earlier than start date.")
 
     def save(self, *args, **kwargs):
         today = date.today()

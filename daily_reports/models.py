@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from courses.models.course_model import Course
 
 class DailyReport(models.Model):
     STATUS_CHOICES = [
@@ -8,7 +9,7 @@ class DailyReport(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='daily_reports')
-    course = models.ForeignKey('courses.Courses', on_delete=models.CASCADE, related_name='daily_reports')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='daily_reports')
     content = models.TextField(blank=True, null=True)
     status = models.IntegerField(choices=STATUS_CHOICES, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
