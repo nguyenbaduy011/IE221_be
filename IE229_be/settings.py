@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'authen',
     'courses',
+    'subjects',
     'daily_reports',
     'core',
     'rest_framework',
