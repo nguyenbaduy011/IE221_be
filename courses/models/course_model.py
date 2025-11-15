@@ -1,5 +1,5 @@
+from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from datetime import date
 
@@ -14,13 +14,13 @@ class Course(models.Model):
     image = models.ImageField(upload_to='courses/', null=True, blank=True)
     start_date = models.DateField()
     finish_date = models.DateField()
-    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_courses')
+    creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_courses')
     status = models.IntegerField(choices=Status.choices, default=Status.NOT_STARTED)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     course_supervisors = models.ManyToManyField(
-        User,
+        settings.AUTH_USER_MODEL,
         through='CourseSupervisor',
         related_name='supervised_courses'
     )

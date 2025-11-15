@@ -1,12 +1,12 @@
+from django.conf import settings
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from django.contrib.auth.models import User
 from .course_model import Course
 
 class CourseSupervisor(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='supervisors')
-    supervisor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='supervised_courses_links')
+    supervisor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='supervised_courses_links')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -21,7 +21,7 @@ class CourseSupervisor(models.Model):
         Đảm bảo rằng mỗi khóa học có ít nhất một người giám sát.
         """
         if self.pk and self.course:
-            remaining = self.course.course_supervisors.exclude(pk=self.pk).count()
+            remaining = self.course.supervisors.exclude(pk=self.pk).count()
             if remaining < 1:
                 raise ValidationError(
                     _("Course must have at least one supervisor.")
@@ -35,4 +35,4 @@ class CourseSupervisor(models.Model):
         super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.supervisor.username} supervises {self.course.name}"
+        return f"{self.supervisor.email} supervises {self.course.name}"
