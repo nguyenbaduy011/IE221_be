@@ -3,6 +3,8 @@ from rest_framework import serializers
 from .models import CustomUser
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+
 from datetime import timedelta
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -73,3 +75,51 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['access'] = str(refresh.access_token)
 
         return data
+
+class LogoutSerializer(serializers.Serializer):
+    """
+    Serializer để nhận refresh token và đưa vào blacklist.
+    """
+    refresh = serializers.CharField()
+
+    default_error_messages = {
+        'bad_token': ('Token không hợp lệ hoặc đã hết hạn')
+    }
+
+    def validate(self, attrs):
+        self.token = attrs['refresh']
+        return attrs
+
+    def save(self, **kwargs):
+        try:
+            RefreshToken(self.token).blacklist()
+        except TokenError:
+            self.fail('bad_token')
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """
+    Serializer để đổi mật khẩu (cho user đã đăng nhập).
+    """
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    # Bạn có thể thêm 'new_password_confirm' nếu muốn
+
+    def validate_old_password(self, value):
+        # Lấy user từ context (được truyền vào từ View)
+        user = self.context['request'].user
+        
+        if not user.check_password(value):
+            raise serializers.ValidationError("Mật khẩu cũ không chính xác.")
+        return value
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password_confirm']:
+            raise serializers.ValidationError({"new_password": "Mật khẩu không khớp."})
+        return attrs
+
+    def save(self, **kwargs):
+        # Lưu mật khẩu mới
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user

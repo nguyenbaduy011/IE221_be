@@ -2,10 +2,11 @@
 from rest_framework import viewsets, permissions, generics
 from rest_framework.response import Response
 from .models import CustomUser
-from .serializers import UserRegistrationSerializer, UserDetailSerializer, ResendActivationEmailSerializer, MyTokenObtainPairSerializer
+from .serializers import UserRegistrationSerializer, UserDetailSerializer, ResendActivationEmailSerializer, MyTokenObtainPairSerializer, LogoutSerializer, ChangePasswordSerializer
 
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework import status
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from django.contrib.auth.tokens import default_token_generator
@@ -34,10 +35,10 @@ class RegistrationViewSet(viewsets.ViewSet):
                 "message": "Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản."
             }
             # 2. Trả về dict đó
-            return Response(response_data, status=201)
+            return Response(response_data, status=status.HTTP_201_CREATED)
             # ========================
 
-        return Response(serializer.errors, status=400) # Lỗi 400 đã được Exception Handler xử lý
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST) # Lỗi 400 đã được Exception Handler xử lý
 
 class UserProfileView(generics.RetrieveAPIView):
     """
@@ -68,9 +69,9 @@ class ActivateAccountView(APIView):
             # Kích hoạt user
             user.is_active = True
             user.save()
-            return Response({"message": "Tài khoản kích hoạt thành công!"}, status=200)
+            return Response({"message": "Tài khoản kích hoạt thành công!"}, status=status.HTTP_200_OK)
         else:
-            return Response({"error": "Link kích hoạt không hợp lệ."}, status=400)
+            return Response({"error": "Link kích hoạt không hợp lệ."}, status=status.HTTP_400_BAD_REQUEST)
 
 class ResendActivationEmailView(generics.GenericAPIView):
     """
@@ -106,7 +107,7 @@ class ResendActivationEmailView(generics.GenericAPIView):
         # Điều này ngăn chặn hacker dò email ("user enumeration").
         return Response(
             {"message": "Nếu tài khoản của bạn tồn tại và chưa được kích hoạt, một email mới đã được gửi đi."},
-            status=200
+            status=status.HTTP_200_OK
         )
 
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -114,3 +115,41 @@ class MyTokenObtainPairView(TokenObtainPairView):
     View đăng nhập tùy chỉnh, sử dụng Serializer tùy chỉnh.
     """
     serializer_class = MyTokenObtainPairSerializer
+
+class LogoutView(generics.GenericAPIView):
+    """
+    API endpoint để đăng xuất và blacklist refresh token.
+    POST /auth/logout/
+    """
+    serializer_class = LogoutSerializer
+    permission_classes = [permissions.IsAuthenticated] # Chỉ user đã đăng nhập mới được logout
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Trả về 204 No Content là chuẩn cho việc logout/delete
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ChangePasswordView(generics.UpdateAPIView):
+    """
+    API endpoint để đổi mật khẩu.
+    PUT /auth/change-password/
+    """
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [permissions.IsAuthenticated] # Bắt buộc phải đăng nhập
+
+    def get_object(self):
+        # Trả về chính user đang đăng nhập
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        # Ghi đè phương thức update
+        user = self.get_object()
+        serializer = self.get_serializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save() # Gọi hàm save() trong serializer
+        
+        return Response({"message": "Đổi mật khẩu thành công."}, status=status.HTTP_200_OK)

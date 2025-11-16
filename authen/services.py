@@ -10,7 +10,7 @@ def send_activation_email(user, request):
     token = default_token_generator.make_token(user)
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
     
-    activation_link = f"http://localhost:3000/auth/activate/{uidb64}/{token}/"
+    activation_link = f"http://localhost:3000/activate/{uidb64}/{token}/"
     
     subject = "Kích hoạt tài khoản của bạn"
     message = f"""
