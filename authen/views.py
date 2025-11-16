@@ -27,9 +27,17 @@ class RegistrationViewSet(viewsets.ViewSet):
             except Exception as e:
                 print(f"Lỗi gửi mail: {e}")
 
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+            # === ĐÂY LÀ CÁCH SỬA ===
+            # 1. Tạo một dict chứa cả data và message
+            response_data = {
+                "data": serializer.data,
+                "message": "Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản."
+            }
+            # 2. Trả về dict đó
+            return Response(response_data, status=201)
+            # ========================
 
+        return Response(serializer.errors, status=400) # Lỗi 400 đã được Exception Handler xử lý
 
 class UserProfileView(generics.RetrieveAPIView):
     """

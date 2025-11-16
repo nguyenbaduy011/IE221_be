@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'authen',
     'courses',
     'daily_reports',
+    'core',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -73,7 +74,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
-    )
+    ),
+    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
+    'DEFAULT_RENDERER_CLASSES': (
+        'core.renderers.CustomJSONRenderer',
+        # (Thêm     'rest_framework.renderers.BrowsableAPIRenderer' nếu bạn muốn giữ trang API)
+    ),
 }
 
 AUTH_USER_MODEL = 'authen.CustomUser'
@@ -165,4 +171,21 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000", # Địa chỉ của frontend Next.js
+    "http://127.0.0.1:3000", 
 ]
+    
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "origin",
+    "dnt",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
