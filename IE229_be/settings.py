@@ -79,7 +79,8 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
     'DEFAULT_RENDERER_CLASSES': (
         'core.renderers.CustomJSONRenderer',
-        # (Thêm     'rest_framework.renderers.BrowsableAPIRenderer' nếu bạn muốn giữ trang API)
+        'rest_framework.renderers.BrowsableAPIRenderer',
+        
     ),
 }
 
@@ -190,3 +191,5 @@ CORS_ALLOW_HEADERS = [
 ]
 
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+CLIENT_URL = "http://localhost:3000"

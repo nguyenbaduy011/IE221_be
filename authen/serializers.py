@@ -1,5 +1,5 @@
 # authen/serializers.py
-from rest_framework import serializers
+from rest_framework import serializers, exceptions
 from .models import CustomUser
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -43,19 +43,42 @@ class ResendActivationEmailSerializer(serializers.Serializer):
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Serializer tùy chỉnh để thêm 'remember_me' và thay đổi thời hạn token.
+    Serializer tùy chỉnh:
+    1. Kiểm tra user chưa active -> Trả lỗi ACCOUNT_NOT_ACTIVE
+    2. Thêm 'remember_me' để chỉnh thời hạn token.
+    3. Thêm thông tin user vào response.
     """
-    # Thêm trường 'remember_me' vào, nó không cần lưu vào model
     remember_me = serializers.BooleanField(write_only=True, required=False)
 
     def validate(self, attrs):
-        # Chạy hàm validate() của lớp cha (để xác thực user, pass)
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        if email and password:
+            # Tìm user trong DB 
+            user = CustomUser.objects.filter(email__iexact=email).first()
+            
+            if user:
+                # Kiểm tra mật khẩu thủ công
+                if user.check_password(password):
+                    # Nếu mật khẩu đúng, kiểm tra tiếp is_active
+                    if not user.is_active:
+                        # NẾU CHƯA ACTIVE: Ném lỗi với code riêng biệt
+                        raise exceptions.AuthenticationFailed(
+                            detail="ACCOUNT_NOT_ACTIVE",
+                            code="ACCOUNT_NOT_ACTIVE"
+                        )
+                # Nếu mật khẩu sai: Để im, hàm super().validate() phía dưới sẽ lo việc báo lỗi
+        # ----------------------
+
+        # Chạy hàm validate gốc của SimpleJWT
+        # Hàm này sẽ kiểm tra user/pass lần nữa và tạo token nếu mọi thứ OK (bao gồm is_active=True)
         data = super().validate(attrs)
 
         # Lấy đối tượng refresh token
         refresh = self.get_token(self.user)
 
-        # Thêm thông tin user vào Access Token (tùy chọn, nhưng rất tiện)
+        # Thêm thông tin user vào Access Token response
         data['user'] = {
             'id': self.user.id,
             'email': self.user.email,
@@ -63,14 +86,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             'role': self.user.role
         }
 
-        # Kiểm tra xem 'remember_me' có được gửi và có = True không
+        # Xử lý Remember Me
         if attrs.get('remember_me', False):
-            # Nếu có, set thời hạn của Refresh Token là 30 ngày
             refresh.set_exp(lifetime=timedelta(days=30))
         
-        # (Nếu không, nó sẽ tự dùng thời hạn mặc định trong settings.py)
-
-        # Cập nhật lại token trong data trả về
         data['refresh'] = str(refresh)
         data['access'] = str(refresh.access_token)
 
@@ -121,5 +140,34 @@ class ChangePasswordSerializer(serializers.Serializer):
         # Lưu mật khẩu mới
         user = self.context['request'].user
         user.set_password(self.validated_data['new_password'])
+        user.save()
+        return user
+
+
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer cho Admin tạo User mới:
+    - Không cần confirm password (giả định Admin set cứng hoặc auto).
+    - Set is_active = True mặc định (hoặc tuỳ chọn).
+    - Cho phép chọn Role ngay lập tức.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'email', 'full_name', 'password', 'role', 'is_active')
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def create(self, validated_data):
+        # Mặc định Admin tạo thì cho active luôn, trừ khi Admin cố tình set False
+        is_active = validated_data.pop('is_active', True) 
+        
+        user = CustomUser.objects.create_user(
+            email=validated_data['email'],
+            full_name=validated_data.get('full_name', ''),
+            role=validated_data['role'], # Admin được quyền gán role
+            password=validated_data['password']
+        )
+        user.is_active = is_active
         user.save()
         return user

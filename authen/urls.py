@@ -6,13 +6,13 @@ from .views import RegistrationViewSet, UserProfileView, ActivateAccountView, Re
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
-    
 )
 
 
 # Router tự động tạo URL cho 'create' (POST)
 router = DefaultRouter()
 router.register(r'register', RegistrationViewSet, basename='register')
+
 
 urlpatterns = [
     # Tự động tạo URL:
@@ -37,4 +37,6 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
 
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+
+
 ]
