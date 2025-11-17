@@ -1,18 +1,18 @@
 # authen/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RegistrationViewSet, UserProfileView, ActivateAccountView, ResendActivationEmailView, MyTokenObtainPairView
+from .views import RegistrationViewSet, UserProfileView, ActivateAccountView, ResendActivationEmailView, MyTokenObtainPairView, LogoutView, ChangePasswordView
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
-    
 )
 
 
 # Router tự động tạo URL cho 'create' (POST)
 router = DefaultRouter()
 router.register(r'register', RegistrationViewSet, basename='register')
+
 
 urlpatterns = [
     # Tự động tạo URL:
@@ -33,4 +33,10 @@ urlpatterns = [
     path('activate/<str:uidb64>/<str:token>/', ActivateAccountView.as_view(), name='activate-account'),
 
     path('resend-activation/', ResendActivationEmailView.as_view(), name='resend-activation'),
+
+    path('logout/', LogoutView.as_view(), name='logout'),
+
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+
+
 ]
