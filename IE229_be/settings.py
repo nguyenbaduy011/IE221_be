@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'authen',
     'courses',
     'subjects',
+    'users',
     'daily_reports',
     'core',
     'rest_framework',
