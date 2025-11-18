@@ -26,6 +26,9 @@ urlpatterns = [
         # --- Nhóm Public/User API (/api/...) ---
         # URL kết quả: /api/courses/
         path('courses/', include('courses.urls')),
+
+        # URL kết quả: /api/subjects/
+        path('subjects/', include('subjects.urls')),
         
         # URL kết quả: /api/daily_reports/
         path('daily_reports/', include('daily_reports.urls')),
