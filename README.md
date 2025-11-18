@@ -49,6 +49,11 @@ This is a Django web application project. It provides \[brief description of you
      ```bash
      python manage.py migrate
      ```
+   - Seed the database with sample data (Users, Courses, Subjects, etc.):
+
+     ```bash
+     python manage.py seed_data
+     ```
 
 5. **Run the development server**: Start the Django development server:
 
