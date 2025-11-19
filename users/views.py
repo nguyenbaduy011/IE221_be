@@ -1,8 +1,9 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action # <--- Import cái này
+from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db.models import Q 
 from authen.models import CustomUser
-from authen.permissions import IsAdminRole # Import permission (hoặc move file này sang users luôn)
+from authen.permissions import IsAdminRole
 from .serializers import (
     AdminUserListSerializer,
     AdminUserCreateSerializer,
@@ -10,13 +11,9 @@ from .serializers import (
 )
 
 class AdminUserViewSet(viewsets.ModelViewSet):
-    """
-    API Quản lý User (Chỉ Admin)
-    Endpoint: /api/users/
-    """
     permission_classes = [IsAdminRole]
-    queryset = CustomUser.objects.all().order_by('-date_joined')
-    
+    serializer_class = AdminUserListSerializer
+
     def get_serializer_class(self):
         if self.action == 'create':
             return AdminUserCreateSerializer
@@ -24,34 +21,80 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             return AdminUserUpdateSerializer
         return AdminUserListSerializer
 
-    @action(detail=True, methods=['post'], url_path='deactivate')
-    def deactivate_user(self, request, pk=None):
-        user = self.get_object()
+    def get_queryset(self):
+        # Sắp xếp theo ngày tham gia mới nhất
+        queryset = CustomUser.objects.all().order_by('-date_joined')
         
-        if user == request.user:
-            return Response({
-                "status": "error",
-                "message": "Bạn không thể tự khóa tài khoản của chính mình.",
-                "data": None
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # 1. Xử lý Search
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search) | 
+                Q(full_name__icontains=search)
+            )
 
-        user.is_active = False
-        user.save()
-        
+        # 2. Xử lý Role (Frontend gửi chuỗi rỗng nếu là ALL, hoặc backend tự check)
+        role = self.request.query_params.get('role')
+        if role and role != 'ALL':
+            queryset = queryset.filter(role=role)
+
+        # 3. Xử lý Status
+        status_param = self.request.query_params.get('status')
+        if status_param == 'ACTIVE':
+            queryset = queryset.filter(is_active=True)
+        elif status_param == 'INACTIVE':
+            queryset = queryset.filter(is_active=False)
+            
+        return queryset
+
+    # --- Override để bọc Response theo chuẩn ApiResponse { status, message, data } ---
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
         return Response({
             "status": "success",
-            "message": f"Đã vô hiệu hóa user {user.email}.",
+            "message": "Lấy danh sách thành công",
+            "data": response.data
+        })
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        return Response({
+            "status": "success",
+            "message": "Tạo user thành công",
+            "data": response.data
+        }, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        return Response({
+            "status": "success",
+            "message": "Cập nhật thành công",
+            "data": response.data
+        }, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response({
+            "status": "success",
+            "message": "Xóa thành công",
             "data": None
         }, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post'], url_path='activate')
-    def activate_user(self, request, pk=None):
+    # --- Actions ---
+
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        user = self.get_object()
+        if user.id == request.user.id:
+            return Response({"status": "error", "message": "Không thể tự khóa chính mình"}, status=400)
+        user.is_active = False
+        user.save()
+        return Response({"status": "success", "message": "Đã khóa tài khoản", "data": None}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
         user = self.get_object()
         user.is_active = True
         user.save()
-        
-        return Response({
-            "status": "success",
-            "message": f"Đã kích hoạt lại user {user.email}.",
-            "data": None
-        }, status=status.HTTP_200_OK)
+        return Response({"status": "success", "message": "Đã mở khóa tài khoản", "data": None}, status=status.HTTP_200_OK)
