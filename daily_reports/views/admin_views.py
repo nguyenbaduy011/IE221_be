@@ -26,7 +26,7 @@ class AdminDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
         # KIỂM TRA ROLE USER
         # giả sử User model có trường `role`
-        if not hasattr(user, "role") or user.role != "admin":
+        if not hasattr(user, "role") or user.role != "ADMIN":
             raise PermissionDenied("You do not have permission to access this resource.")
 
         # User hợp lệ => trả dữ liệu

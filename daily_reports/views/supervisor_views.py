@@ -24,7 +24,7 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 🚨 Kiểm tra role supervisor
         # giả sử User model có `role`
-        if not hasattr(user, "role") or user.role != "supervisor":
+        if not hasattr(user, "role") or user.role != "SUPERVISOR":
             raise PermissionDenied("You are not allowed to access supervisor reports.")
 
         # Lấy danh sách khóa học mà supervisor đang giám sát
