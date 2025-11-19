@@ -22,19 +22,15 @@ class TraineeDailyReportViewSet(viewsets.ModelViewSet):
         user = self.request.user
         token_payload = self.request.auth
 
-        # Lấy user_id từ token
         token_user_id = token_payload.get("user_id")
         if not token_user_id:
             raise PermissionDenied("Invalid token: missing user_id")
 
-        # Kiểm tra role trainee
-        if not hasattr(user, "role") or user.role != "trainee":
+        if not hasattr(user, "role") or user.role != "TRAINEE":
             raise PermissionDenied("You are not allowed to access trainee reports.")
 
-        # Chỉ lấy báo cáo của chính user
         queryset = DailyReport.objects.filter(user=user)
 
-        # Filter thêm nếu có
         course_id = self.request.query_params.get("course_id")
         filter_date = self.request.query_params.get("filter_date")
 
