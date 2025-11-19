@@ -261,11 +261,13 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS('=> Starting seeding process...'))
         
-        user_image_path = os.path.join(settings.BASE_DIR, "core", "assets", "default_user_image.png")
-        course_image_path = os.path.join(settings.BASE_DIR, "core", "assets", "default_course_image.png")
+        assets_dir = os.path.join(settings.BASE_DIR, "core", "assets", "seed_images")
+
+        user_image_path = os.path.join(assets_dir, "default_user_image.png")
+        course_image_path = os.path.join(assets_dir, "default_course_image.png")
         
         if not os.path.exists(user_image_path) or not os.path.exists(course_image_path):
-             self.stdout.write(self.style.WARNING('!!! WARNING: Image files not found in core/assets/. Seeds will run without images.'))
+            self.stdout.write(self.style.WARNING(f'!!! WARNING: Images not found in {assets_dir}'))
 
         with transaction.atomic():
             self.stdout.write("-> Creating Users...")
@@ -395,7 +397,8 @@ class Command(BaseCommand):
                 
                 if os.path.exists(image_path):
                     with open(image_path, 'rb') as f:
-                        course.image.save('course_cover.png', File(f), save=True)
+                        file_name = f"media/{fake.slug()}_{random.randint(1,9999)}.png"
+                        course.image.save(file_name, File(f), save=True)
                 
                 if all_categories:
                     selected_cats = random.sample(all_categories, random.randint(1, 3))
@@ -423,7 +426,7 @@ class Command(BaseCommand):
             create_course_with_image(c_name, start_date, finish_date, Course.Status.NOT_STARTED)
 
     def create_comments(self):
-        user_subjects = UserSubject.objects.filter(status=UserSubject.Status.FINISH)
+        user_subjects = UserSubject.objects.filter(status=UserSubject.Status.FINISHED_ON_TIME)
         content_type = ContentType.objects.get_for_model(UserSubject)
 
         for us in user_subjects:
