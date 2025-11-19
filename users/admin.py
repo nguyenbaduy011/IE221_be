@@ -12,7 +12,7 @@ class UserCourseAdmin(admin.ModelAdmin):
 
 @admin.register(UserSubject)
 class UserSubjectAdmin(admin.ModelAdmin):
-    list_display = ('user', 'subject', 'status', 'score')
+    list_display = ('user', 'user_course', 'course_subject', 'status', 'score')
     list_filter = ('status',)
 
 @admin.register(UserTask)
