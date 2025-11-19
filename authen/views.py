@@ -28,7 +28,6 @@ class RegistrationViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = self.serializer_class(data=request.data)
         
-        # --- SỬA Ở ĐÂY ---
         # Thêm raise_exception=True. 
         # Nếu lỗi, nó sẽ tự ném ValidationError -> custom_exception_handler sẽ bắt và format lại.
         serializer.is_valid(raise_exception=True) 

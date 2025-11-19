@@ -38,3 +38,5 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'email', 'full_name', 'role', 'is_active', 'birthday', 'gender')
         read_only_fields = ('email',)
+
+
