@@ -7,7 +7,8 @@ from authen.permissions import IsAdminRole
 from .serializers import (
     AdminUserListSerializer,
     AdminUserCreateSerializer,
-    AdminUserUpdateSerializer
+    AdminUserUpdateSerializer,
+    AdminUserBulkCreateSerializer
 )
 
 class AdminUserViewSet(viewsets.ModelViewSet):
@@ -98,3 +99,25 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         user.is_active = True
         user.save()
         return Response({"status": "success", "message": "Đã mở khóa tài khoản", "data": None}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def bulk_add(self, request):
+        serializer = AdminUserBulkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        users = serializer.save()
+        return Response({
+            "status": "success",
+            "message": f"{len(users)} users created successfully",
+            "data": [{"id": u.id, "email": u.email, "full_name": u.full_name} for u in users]
+        }, status=201)
+
+    @action(detail=False, methods=['post'])
+    def bulk_delete(self, request):
+        ids = request.data.get("ids", [])
+        if not ids:
+            return Response({"status": "error", "message": "No user IDs provided"}, status=400)
+        
+        users = CustomUser.objects.filter(id__in=ids)
+        count = users.count()
+        users.delete()
+        return Response({"status": "success", "message": f"{count} users deleted", "data": None})

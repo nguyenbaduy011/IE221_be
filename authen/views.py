@@ -10,7 +10,6 @@ from django.utils.encoding import force_str
 from django.contrib.auth.tokens import default_token_generator
 
 from .models import CustomUser
-from .permissions import IsAdminRole
 from .serializers import (
     UserRegistrationSerializer, 
     UserDetailSerializer, 
