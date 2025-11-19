@@ -36,7 +36,37 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'email', 'full_name', 'role', 'is_active', 'birthday', 'gender')
+        fields = ('id', 'email', 'full_name', 'role', 'is_active', 'birthday', 'gender', 'is_staff')
         read_only_fields = ('email',)
 
+class AdminUserBulkCreateSerializer(serializers.Serializer):
+    emails = serializers.ListField(
+        child=serializers.EmailField(),
+        allow_empty=False,
+        help_text="Danh sách email"
+    )
+    role = serializers.ChoiceField(choices=CustomUser.Role.choices, default="TRAINEE")
 
+    def create(self, validated_data):
+        created_users = []
+
+        for email in validated_data["emails"]:
+            random_name = email.split("@")[0]  
+            random_password = get_random_string(10)
+
+            user = CustomUser.objects.create_user(
+                email=email,
+                full_name=random_name,
+                role=validated_data["role"],
+                password=random_password
+            )
+            user.is_active = True
+            user.save()
+
+            try:
+                send_new_account_email(user, random_password)
+            except Exception as e:
+                print(f"Failed to send email to {email}: {e}")
+
+            created_users.append(user)
+        return created_users
