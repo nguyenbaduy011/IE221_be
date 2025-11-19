@@ -1,20 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 from ..models import DailyReport
 from ..serializers import DailyReportSerializer
 
 
 class TraineeDailyReportViewSet(viewsets.ModelViewSet):
-    """
-    - GET /trainee/daily_reports/ (list)
-    - POST /trainee/daily_reports/ (create)
-    - GET /trainee/daily_reports/{id}/ (show)
-    - PUT/PATCH /trainee/daily_reports/{id}/ (update)
-    - DELETE /trainee/daily_reports/{id}/ (destroy)
-    """
     serializer_class = DailyReportSerializer
     permission_classes = [IsAuthenticated]
 
@@ -42,5 +35,14 @@ class TraineeDailyReportViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        # Tự gán user từ token
         serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.status != 0:
+            raise ValidationError("Cannot delete a submitted report.")
+        instance.delete()
+
+    def perform_update(self, serializer):
+        if serializer.instance.status != 0:
+            raise ValidationError("Cannot edit a submitted report.")
+        serializer.save()
