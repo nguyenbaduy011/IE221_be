@@ -28,7 +28,7 @@ urlpatterns = [
         path('courses/', include('courses.urls')),
 
         # URL kết quả: /api/subjects/
-        path('subjects/', include('subjects.urls')),
+        path('', include('subjects.urls')),
         
         # URL kết quả: /api/daily_reports/
         path('daily_reports/', include('daily_reports.urls')),
