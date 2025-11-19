@@ -4,12 +4,7 @@ from rest_framework.response import Response
 
 from subjects.serializers.subject_serializers import SubjectSerializer
 from subjects.selectors import get_subject_by_id, search_subjects
-
-class IsTrainee(permissions.BasePermission):
-    def has_permission(self, request, view):
-        # Cho phép trainee và cả các role khác truy cập view public search nếu cần
-        # Hoặc strict chỉ trainee:
-        return request.user.is_authenticated and getattr(request.user, 'role', None) == 'trainee'
+from authen.permissions import IsTraineeRole
 
 class TraineeSubjectListView(APIView):
     """
@@ -29,7 +24,7 @@ class TraineeSubjectDetailView(APIView):
     Xem chi tiết Subject (Tương ứng Trainee::SubjectsController#show)
     """
     serializer_class = SubjectSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTrainee]
+    permission_classes = [permissions.IsAuthenticated, IsTraineeRole]
 
     def get(self, request, subject_id):
         subject = get_subject_by_id(subject_id)

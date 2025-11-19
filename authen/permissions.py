@@ -33,3 +33,14 @@ class IsTraineeRole(permissions.BasePermission):
             and request.user.is_authenticated
             and request.user.role == 'TRAINEE'
         )
+
+class IsAdminOrSupervisor(permissions.BasePermission):
+    """
+    Cho phép truy cập nếu user là ADMIN hoặc SUPERVISOR
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role in ['ADMIN', 'SUPERVISOR']
+        )
