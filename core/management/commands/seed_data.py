@@ -117,9 +117,11 @@ class CourseSeederService:
         course_subjects = CourseSubject.objects.filter(course=self.course).order_by('position')
 
         for cs in course_subjects:
+            # ⭐ FIX: tạo theo course_subject + user_course
             user_subject, created = UserSubject.objects.get_or_create(
                 user=user_course.user,
-                subject=cs.subject,
+                user_course=user_course,
+                course_subject=cs,
                 defaults={'status': UserSubject.Status.NOT_STARTED}
             )
 
@@ -127,7 +129,7 @@ class CourseSeederService:
                 taskable_type=Task.TaskType.COURSE_SUBJECT,
                 taskable_id=cs.id
             )
-            
+
             for task in cs_tasks:
                 UserTask.objects.get_or_create(
                     user=user_course.user,
@@ -138,38 +140,54 @@ class CourseSeederService:
 
             self.update_realistic_progress(user_subject, cs, cs_tasks)
 
+
     def update_realistic_progress(self, user_subject, cs, cs_tasks):
         status, started_at, completed_at = self.determine_status_and_dates(cs)
-        
+
         score = None
-        if status == UserSubject.Status.FINISH:
+        if status in [
+            UserSubject.Status.FINISHED_EARLY,
+            UserSubject.Status.FINISHED_ON_TIME,
+            UserSubject.Status.FINISED_BUT_OVERDUE
+        ]:
             score = round(random.uniform(5.0, 10.0), 1)
 
         user_subject.status = status
         user_subject.score = score
+
         if started_at:
-             user_subject.started_at = timezone.make_aware(timezone.datetime.combine(started_at, timezone.datetime.min.time()))
+            user_subject.started_at = timezone.make_aware(
+                timezone.datetime.combine(started_at, timezone.datetime.min.time())
+            )
+
         if completed_at:
-             user_subject.completed_at = timezone.make_aware(timezone.datetime.combine(completed_at, timezone.datetime.min.time()))
+            user_subject.completed_at = timezone.make_aware(
+                timezone.datetime.combine(completed_at, timezone.datetime.min.time())
+            )
+
         user_subject.save()
 
-        if status == UserSubject.Status.NOT_STARTED:
-            return
+        # ------ Update tasks ------
+        if status in [
+            UserSubject.Status.FINISHED_EARLY,
+            UserSubject.Status.FINISHED_ON_TIME,
+            UserSubject.Status.FINISED_BUT_OVERDUE
+        ]:
+            UserTask.objects.filter(user_subject=user_subject).update(status=UserTask.Status.DONE)
 
-        if status == UserSubject.Status.FINISH:
-             UserTask.objects.filter(user_subject=user_subject).update(status=UserTask.Status.DONE)
-        else:
+        elif status == UserSubject.Status.IN_PROGRESS:
             for ut in UserTask.objects.filter(user_subject=user_subject):
                 if random.choice([True, False]):
                     ut.status = UserTask.Status.DONE
                     ut.save()
 
+
     def determine_status_and_dates(self, cs):
         if self.course.status == Course.Status.NOT_STARTED or not cs.start_date or self.today < cs.start_date:
             return UserSubject.Status.NOT_STARTED, None, None
-        
+
         started_at = cs.start_date + timedelta(days=random.randint(-1, 1))
-        
+
         rand_val = random.random()
         if rand_val < 0.6:
             target_complete = cs.finish_date - timedelta(days=random.randint(1, 3))
@@ -177,23 +195,35 @@ class CourseSeederService:
             target_complete = cs.finish_date
         else:
             target_complete = cs.finish_date + timedelta(days=random.randint(1, 5))
-            
+
+        # Completed:
+        def finished_status():
+            if target_complete < cs.finish_date:
+                return UserSubject.Status.FINISHED_EARLY
+            elif target_complete == cs.finish_date:
+                return UserSubject.Status.FINISHED_ON_TIME
+            return UserSubject.Status.FINISED_BUT_OVERDUE
+
+        # Course finished
         if self.course.status == Course.Status.FINISHED:
             if random.random() > 0.05:
-                return UserSubject.Status.FINISH, started_at, target_complete
+                return finished_status(), started_at, target_complete
             return UserSubject.Status.IN_PROGRESS, started_at, None
 
+        # In-progress date range
         if cs.start_date <= self.today <= cs.finish_date:
             if random.random() < 0.2 and target_complete <= self.today:
-                return UserSubject.Status.FINISH, started_at, target_complete
+                return finished_status(), started_at, target_complete
             return UserSubject.Status.IN_PROGRESS, started_at, None
-            
+
+        # Past due
         if self.today > cs.finish_date:
-             if random.random() < 0.9:
-                 return UserSubject.Status.FINISH, started_at, target_complete
-             return UserSubject.Status.IN_PROGRESS, started_at, None
+            if random.random() < 0.9:
+                return finished_status(), started_at, target_complete
+            return UserSubject.Status.IN_PROGRESS, started_at, None
 
         return UserSubject.Status.IN_PROGRESS, started_at, None
+
 
     def seed_daily_reports(self, user_course):
         start_day = self.course.start_date
@@ -231,11 +261,13 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         self.stdout.write(self.style.SUCCESS('=> Starting seeding process...'))
         
-        user_image_path = os.path.join(settings.BASE_DIR, "core", "assets", "default_user_image.png")
-        course_image_path = os.path.join(settings.BASE_DIR, "core", "assets", "default_course_image.png")
+        assets_dir = os.path.join(settings.BASE_DIR, "core", "assets", "seed_images")
+
+        user_image_path = os.path.join(assets_dir, "default_user_image.png")
+        course_image_path = os.path.join(assets_dir, "default_course_image.png")
         
         if not os.path.exists(user_image_path) or not os.path.exists(course_image_path):
-             self.stdout.write(self.style.WARNING('!!! WARNING: Image files not found in core/assets/. Seeds will run without images.'))
+            self.stdout.write(self.style.WARNING(f'!!! WARNING: Images not found in {assets_dir}'))
 
         with transaction.atomic():
             self.stdout.write("-> Creating Users...")
@@ -365,7 +397,8 @@ class Command(BaseCommand):
                 
                 if os.path.exists(image_path):
                     with open(image_path, 'rb') as f:
-                        course.image.save('course_cover.png', File(f), save=True)
+                        file_name = f"media/{fake.slug()}_{random.randint(1,9999)}.png"
+                        course.image.save(file_name, File(f), save=True)
                 
                 if all_categories:
                     selected_cats = random.sample(all_categories, random.randint(1, 3))
@@ -393,7 +426,7 @@ class Command(BaseCommand):
             create_course_with_image(c_name, start_date, finish_date, Course.Status.NOT_STARTED)
 
     def create_comments(self):
-        user_subjects = UserSubject.objects.filter(status=UserSubject.Status.FINISH)
+        user_subjects = UserSubject.objects.filter(status=UserSubject.Status.FINISHED_ON_TIME)
         content_type = ContentType.objects.get_for_model(UserSubject)
 
         for us in user_subjects:
@@ -401,8 +434,9 @@ class Command(BaseCommand):
 
             relevant_course = Course.objects.filter(
                 user_courses__user=us.user,
-                coursesubject__subject=us.subject
+                coursesubject__subject=us.course_subject.subject
             ).first()
+
 
             if not relevant_course:
                 continue

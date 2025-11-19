@@ -1,10 +1,22 @@
-from django.urls import path
-from subjects.views.supervisor_views import SupervisorSubjectListView, SupervisorSubjectDetailView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
+from subjects.views.supervisor_views import (
+    SupervisorSubjectListView, 
+    SupervisorSubjectDetailView,
+    SupervisorTaskViewSet
+)
 from subjects.views.trainee_views import TraineeSubjectListView, TraineeSubjectDetailView
+
+# Tạo router cho các ViewSet của Supervisor
+supervisor_router = DefaultRouter()
+# Đăng ký 'tasks' -> sẽ tạo ra các url: /supervisor/tasks/, /supervisor/tasks/{id}/
+supervisor_router.register(r'tasks', SupervisorTaskViewSet, basename='supervisor-task')
 
 urlpatterns = [
     # --- Supervisor Namespace ---
-    # Tương ứng: namespace :supervisor { resources :subjects }
+    
+    # 1. Subjects (APIView truyền thống)
     path(
         'supervisor/subjects/', 
         SupervisorSubjectListView.as_view(), 
@@ -16,8 +28,12 @@ urlpatterns = [
         name='supervisor-subject-detail'
     ),
 
+    # 2. Tasks (Sử dụng Router)
+    # Include router urls vào path 'supervisor/'
+    path('supervisor/', include(supervisor_router.urls)),
+
+
     # --- Trainee Namespace ---
-    # Tương ứng: namespace :trainee { resources :subjects, only: [:index, :show] }
     path(
         'trainee/subjects/', 
         TraineeSubjectListView.as_view(), 
