@@ -7,14 +7,18 @@ from users.models.user_subject import UserSubject
 from users.models.user_task import UserTask
 from courses.models.course_subject import CourseSubject
 from subjects.models.task import Task
+from subjects.models.category import Category # Import Category
+
 from subjects.serializers.subject_serializers import SubjectSerializer
-from subjects.selectors import get_subject_by_id, search_subjects
+from subjects.serializers.task_serializers import TaskSerializer
+from subjects.serializers.category_serializers import CategorySerializer # Import CategorySerializer
+
+from subjects.selectors import get_subject_by_id, search_subjects, search_categories, get_category_by_id # Import selectors cho category
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 
 from authen.permissions import IsSupervisorRole, IsAdminOrSupervisor, IsTaskEditor
-from subjects.serializers.task_serializers import TaskSerializer
 from subjects.models.subject import Subject
 
 class SupervisorSubjectListView(APIView):
@@ -200,4 +204,46 @@ class TaskViewSet(viewsets.ModelViewSet):
             {"message": "Task deleted successfully"}, 
             status=status.HTTP_204_NO_CONTENT
         )
-    
+
+# --- SUPERVISOR CATEGORY VIEWSET ---
+
+class SupervisorCategoryViewSet(viewsets.ModelViewSet):
+    """
+    CRUD Category cho Supervisor.
+    """
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrSupervisor]
+
+    def get_queryset(self):
+        search_query = self.request.query_params.get('search')
+        return search_categories(query=search_query)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return Response({
+                "message": "Create category success",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+            return Response({
+                "message": "Update category success",
+                "data": serializer.data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Category deleted successfully"}, 
+            status=status.HTTP_204_NO_CONTENT
+        )

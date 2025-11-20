@@ -4,22 +4,27 @@ from rest_framework.routers import DefaultRouter
 from subjects.views.supervisor_views import (
     SupervisorSubjectListView, 
     SupervisorSubjectDetailView,
-    TaskViewSet  # Class này giờ xử lý cho cả Admin, Supervisor và Trainee
+    TaskViewSet,
+    SupervisorCategoryViewSet
 )
 from subjects.views.trainee_views import TraineeSubjectListView, TraineeSubjectDetailView
 
-# --- Router ---
-# Vì TaskViewSet dùng chung cho cả Trainee (Read) và Supervisor (Write)
-# nên ta đặt nó ở router chung, không gắn prefix 'supervisor' nữa.
+# --- Shared Router ---
+# TaskViewSet dùng chung, URL dạng: /tasks/
 router = DefaultRouter()
 router.register(r'tasks', TaskViewSet, basename='task') 
-# => Tạo ra các url: /tasks/, /tasks/{id}/
+
+# --- Supervisor Specific Router ---
+supervisor_router = DefaultRouter()
+supervisor_router.register(r'categories', SupervisorCategoryViewSet, basename='supervisor-category')
+# URL sẽ là: /supervisor/categories/
 
 urlpatterns = [
-    # --- Include Router URLs ---
-    # Đặt ở đầu để khớp với các route của ViewSet (tasks/)
+    # --- Include Shared Router URLs ---
     path('', include(router.urls)),
 
+    # --- Include Supervisor Router URLs ---
+    path('supervisor/', include(supervisor_router.urls)),
 
     # --- Supervisor Namespace (Các APIView thủ công) ---
     path(
