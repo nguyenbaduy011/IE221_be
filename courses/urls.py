@@ -10,4 +10,5 @@ urlpatterns = [
     path('trainee/courses/', TraineeMyCoursesView.as_view(), name='trainee-my-courses'),
     path('<int:course_id>/members', CourseMembersView.as_view(), name='trainee-course-detail'),
     path('trainee/courses/<int:course_id>/detail/', TraineeCourseDetailView.as_view(), name='trainee-course-subjects'),
+    path('supervisor/courses/my-courses/', SupervisorMyCourseListView.as_view(), name='supervisor-my-course-list'),
 ]
