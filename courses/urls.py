@@ -8,4 +8,5 @@ urlpatterns = [
     path('<int:course_id>/members', CourseMembersView.as_view(), name='trainee-course-detail'),
     path('supervisor/courses/create/', SupervisorCourseCreateView.as_view(), name='supervisor-course-create'),
     path('trainee/courses/<int:course_id>/detail/', TraineeCourseDetailView.as_view(), name='trainee-course-subjects'),
+    path('supervisor/courses/my-courses/', SupervisorMyCourseListView.as_view(), name='supervisor-my-course-list'),
 ]

@@ -16,6 +16,15 @@ class SupervisorCourseListView(APIView):
         serializer = self.serializer_class(courses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class SupervisorMyCourseListView(APIView):
+    serializer_class = CourseSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
+    def get(self, request):
+        user = self.request.user
+        course = Course.objects.filter(course_supervisors=user).distinct().order_by('-created_at')
+        return Response(self.serializer_class(course, many=True).data, status=status.HTTP_200_OK)
+
 class SupervisorCourseDetailView(APIView):
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
