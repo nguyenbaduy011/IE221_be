@@ -20,7 +20,7 @@ urlpatterns = [
         path('admin/', include([
             path('users/', include('users.urls')),
         ])),
-        path('courses/', include('courses.urls')),
+        path('', include('courses.urls')),
         path('', include('subjects.urls')),
         path('daily_reports/', include('daily_reports.urls')),
     ])),
