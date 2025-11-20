@@ -49,8 +49,7 @@ class SupervisorCourseCreateView(APIView):
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         course = CourseCreateService.create_course(user=request.user, validated_data=serializer.validated_data)
         response_serializer = self.serializer_class(course)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-

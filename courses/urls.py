@@ -1,8 +1,10 @@
 from django.urls import path, include
 from courses.views.supervisor_views import *
 from courses.views.trainee_views import *
+from courses.views.admin_views import *
 
 urlpatterns = [
+  path('admin/courses/', AdminCourseListView.as_view(), name='admin-course-list'),
     path('supervisor/courses/', SupervisorCourseListView.as_view(), name='supervisor-course-list'),
     path('supervisor/courses/<int:pk>/', SupervisorCourseDetailView.as_view(), name='supervisor-course-detail'),
     path('supervisor/courses/create/', SupervisorCourseCreateView.as_view(), name='supervisor-course-create'),
