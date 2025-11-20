@@ -1,11 +1,11 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from authen.models import CustomUser
 from courses.models.course_supervisor_model import CourseSupervisor
 
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email']
+        model = CustomUser
+        fields = ['id', 'full_name']
 
 class CourseSupervisorSerializer(serializers.ModelSerializer):
     supervisor = UserBasicSerializer(read_only=True)
