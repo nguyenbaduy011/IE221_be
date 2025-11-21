@@ -85,9 +85,26 @@ class SupervisorSubjectDetailView(APIView):
         if not subject:
             return Response({"detail": "Subject not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # Logic xóa tasks liên quan (giống destroy_tasks trong Rails)
-        Task.objects.filter(taskable_type='subject', taskable_id=subject.id).delete()
-        subject.delete()
+        if CourseSubject.objects.filter(subject_id=subject.id).exists():
+            return Response(
+                {"detail": "Không thể xóa môn học này vì đang thuộc về ít nhất một khóa học."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                Task.objects.filter(
+                    taskable_type=Task.TaskType.SUBJECT, 
+                    taskable_id=subject.id
+                ).delete()
+                
+                subject.delete()
+
+        except Exception as e:
+            return Response(
+                {"detail": f"Lỗi hệ thống khi xóa: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         return Response(status=status.HTTP_204_NO_CONTENT)
     
