@@ -127,3 +127,25 @@ class IsTaskEditor(permissions.BasePermission):
         ).exists()
         
         return is_supervisor
+    
+class IsCommentOwnerOrAdmin(permissions.BasePermission):
+    """
+    - Xem: Authenticated Users
+    - Tạo: Authenticated Users
+    - Sửa: Chỉ chủ sở hữu comment
+    - Xóa: Chủ sở hữu HOẶC Admin
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        # SAFE_METHODS (GET, HEAD, OPTIONS) cho phép hết
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # DELETE: Cho phép Owner hoặc Admin
+        if request.method == 'DELETE':
+            return obj.user == request.user or request.user.role == 'ADMIN'
+
+        # UPDATE/PATCH: Chỉ cho phép Owner
+        return obj.user == request.user

@@ -7,6 +7,11 @@ from users.models.user_course import UserCourse
 from users.models.user_subject import UserSubject
 from authen.models import CustomUser # Import model từ authen
 from authen.services import send_new_account_email
+from rest_framework import serializers
+from django.contrib.contenttypes.models import ContentType
+from users.models.comment import Comment # Import model Comment
+from authen.models import CustomUser
+
 class AdminUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
@@ -123,47 +128,59 @@ class UserSubjectSerializer(serializers.ModelSerializer):
         return data
 
 
-# --- USER TASK SERIALIZERS ---
+# --- COMMENT SERIALIZERS (FIXED) ---
 
-class UserTaskSerializer(serializers.ModelSerializer):
-    task_id = serializers.PrimaryKeyRelatedField(
-        queryset=Task.objects.all(), source='task', write_only=True
-    )
-    user_subject_id = serializers.PrimaryKeyRelatedField(
-        queryset=UserSubject.objects.all(), source='user_subject', write_only=True
-    )
+class UserSimpleSerializer(serializers.ModelSerializer):
+    """
+    Serializer rút gọn để hiển thị thông tin người comment.
+    Đã được đưa ra ngoài class UserTaskSerializer để sửa lỗi undefined.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'email', 'full_name', 'role']
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSimpleSerializer(read_only=True) 
+    model_name = serializers.CharField(write_only=True)
 
     class Meta:
-        model = UserTask
+        model = Comment
         fields = [
-            'id',
-            'task_id',
-            'task',
-            'user_subject_id',
-            'user_subject',
-            'status',
-            'spent_time',
-            'created_at',
-            'updated_at'
+            'id', 
+            'user', 
+            'content', 
+            'created_at', 
+            'updated_at', 
+            'object_id', 
+            'model_name'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'task', 'user_subject']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user']
 
-    def validate(self, data):
-        """
-        Validate logic: Task phải liên quan đến Subject của UserSubject
-        """
+    def validate_content(self, value):
+        if len(value) < 5:
+            raise serializers.ValidationError("Comment content must be at least 5 characters long.")
+        if len(value) > 500:
+            raise serializers.ValidationError("Comment content cannot exceed 500 characters.")
+        return value
+
+    def create(self, validated_data):
+        model_name = validated_data.pop('model_name')
+        object_id = validated_data.get('object_id')
+
+        try:
+            content_type = ContentType.objects.get(model=model_name.lower())
+        except ContentType.DoesNotExist:
+            raise serializers.ValidationError({"model_name": f"Model '{model_name}' not found or invalid."})
+
+        model_class = content_type.model_class()
+        if not model_class.objects.filter(id=object_id).exists():
+             raise serializers.ValidationError({"object_id": "Object with this ID does not exist."})
+
         user = self.context['request'].user
-        user_subject = data.get('user_subject')
-        task = data.get('task')
         
-        # 1. Kiểm tra UserSubject có thuộc về User không
-        if user_subject and user_subject.user != user:
-            raise serializers.ValidationError("UserSubject does not belong to this user.")
-
-        # 2. Logic kiểm tra Task có thuộc về Subject/CourseSubject này không (Optional/Advanced)
-        # Lưu ý: Do Task là polymorphic (thuộc Subject hoặc CourseSubject) nên logic check sẽ khá phức tạp.
-        # Ở mức cơ bản, ta check xem UserSubject đã Active chưa.
-        if user_subject and user_subject.status == UserSubject.Status.NOT_STARTED:
-             raise serializers.ValidationError("Cannot start a task for a subject that has not started.")
-
-        return data
+        comment = Comment.objects.create(
+            user=user,
+            content_type=content_type,
+            **validated_data
+        )
+        return comment

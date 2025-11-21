@@ -1,14 +1,16 @@
+from users.models.comment import Comment
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q 
 from authen.models import CustomUser
-from authen.permissions import IsAdminRole, IsAdminOrSupervisor # Import thêm IsAdminOrSupervisor
+from authen.permissions import IsAdminRole, IsAdminOrSupervisor, IsCommentOwnerOrAdmin # Import thêm IsAdminOrSupervisor
 from .serializers import (
     AdminUserListSerializer,
     AdminUserCreateSerializer,
     AdminUserUpdateSerializer,
-    AdminUserBulkCreateSerializer
+    AdminUserBulkCreateSerializer,
+    CommentSerializer
 )
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -176,3 +178,27 @@ class UserViewSet(viewsets.ModelViewSet):
             "message": f"{len(users)} users created successfully",
             "data": [{"id": u.id, "email": u.email, "full_name": u.full_name} for u in users]
         }, status=status.HTTP_201_CREATED)
+    
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = [IsCommentOwnerOrAdmin]
+    queryset = Comment.objects.all().order_by('-created_at')
+
+    def get_queryset(self):
+        """
+        Hỗ trợ lọc comment theo đối tượng.
+        Ví dụ: /api/comments/?model_name=task&object_id=1
+        """
+        queryset = super().get_queryset()
+        
+        model_name = self.request.query_params.get('model_name')
+        object_id = self.request.query_params.get('object_id')
+
+        if model_name and object_id:
+            try:
+                ct = ContentType.objects.get(model=model_name.lower())
+                queryset = queryset.filter(content_type=ct, object_id=object_id)
+            except ContentType.DoesNotExist:
+                return queryset.none() # Trả về rỗng nếu model sai
+        
+        return queryset
