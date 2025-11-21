@@ -1,3 +1,4 @@
+from django.contrib.contenttypes.models import ContentType
 from users.models.comment import Comment
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -12,6 +13,7 @@ from .serializers import (
     AdminUserBulkCreateSerializer,
     CommentSerializer
 )
+
 
 class UserViewSet(viewsets.ModelViewSet):
     # Cho phép cả Admin và Supervisor truy cập
@@ -180,17 +182,18 @@ class UserViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
     
 class CommentViewSet(viewsets.ModelViewSet):
+    """
+    API cho Comment.
+    Hỗ trợ lọc: /api/resources/comments/?model_name=task&object_id=1
+    """
     serializer_class = CommentSerializer
     permission_classes = [IsCommentOwnerOrAdmin]
-    queryset = Comment.objects.all().order_by('-created_at')
+    queryset = Comment.objects.all().order_by('created_at')
 
     def get_queryset(self):
-        """
-        Hỗ trợ lọc comment theo đối tượng.
-        Ví dụ: /api/comments/?model_name=task&object_id=1
-        """
         queryset = super().get_queryset()
         
+        # Lấy tham số từ URL
         model_name = self.request.query_params.get('model_name')
         object_id = self.request.query_params.get('object_id')
 
@@ -199,6 +202,6 @@ class CommentViewSet(viewsets.ModelViewSet):
                 ct = ContentType.objects.get(model=model_name.lower())
                 queryset = queryset.filter(content_type=ct, object_id=object_id)
             except ContentType.DoesNotExist:
-                return queryset.none() # Trả về rỗng nếu model sai
+                return queryset.none()
         
         return queryset

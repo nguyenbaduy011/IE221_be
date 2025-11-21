@@ -129,53 +129,46 @@ class UserSubjectSerializer(serializers.ModelSerializer):
 
 
 # --- COMMENT SERIALIZERS (FIXED) ---
-
-class UserSimpleSerializer(serializers.ModelSerializer):
-    """
-    Serializer rút gọn để hiển thị thông tin người comment.
-    Đã được đưa ra ngoài class UserTaskSerializer để sửa lỗi undefined.
-    """
+class CommentUserSerializer(serializers.ModelSerializer):
+    """Serializer nhỏ chỉ để hiện tên người comment"""
     class Meta:
         model = CustomUser
         fields = ['id', 'email', 'full_name', 'role']
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = UserSimpleSerializer(read_only=True) 
+    user = CommentUserSerializer(read_only=True)
+    # Client gửi lên tên model (vd: 'task', 'dailyreport') và ID của object đó
     model_name = serializers.CharField(write_only=True)
+    object_id = serializers.IntegerField()
 
     class Meta:
         model = Comment
-        fields = [
-            'id', 
-            'user', 
-            'content', 
-            'created_at', 
-            'updated_at', 
-            'object_id', 
-            'model_name'
-        ]
+        fields = ['id', 'user', 'content', 'created_at', 'updated_at', 'model_name', 'object_id']
         read_only_fields = ['id', 'created_at', 'updated_at', 'user']
 
-    def validate_content(self, value):
-        if len(value) < 5:
-            raise serializers.ValidationError("Comment content must be at least 5 characters long.")
-        if len(value) > 500:
-            raise serializers.ValidationError("Comment content cannot exceed 500 characters.")
-        return value
+    def validate(self, data):
+        model_name = data.get('model_name')
+        object_id = data.get('object_id')
 
-    def create(self, validated_data):
-        model_name = validated_data.pop('model_name')
-        object_id = validated_data.get('object_id')
-
+        # 1. Tìm ContentType từ tên model
         try:
             content_type = ContentType.objects.get(model=model_name.lower())
         except ContentType.DoesNotExist:
-            raise serializers.ValidationError({"model_name": f"Model '{model_name}' not found or invalid."})
+            raise serializers.ValidationError({"model_name": f"Model '{model_name}' không hợp lệ."})
 
+        # 2. Kiểm tra object có tồn tại không
         model_class = content_type.model_class()
         if not model_class.objects.filter(id=object_id).exists():
-             raise serializers.ValidationError({"object_id": "Object with this ID does not exist."})
+             raise serializers.ValidationError({"object_id": "ID đối tượng không tồn tại."})
+        
+        # Lưu content_type vào context để dùng ở hàm create
+        self.context['content_type'] = content_type
+        return data
 
+    def create(self, validated_data):
+        content_type = self.context['content_type'] # Lấy từ bước validate
+        model_name = validated_data.pop('model_name') # Bỏ trường ảo này đi
+        
         user = self.context['request'].user
         
         comment = Comment.objects.create(
