@@ -2,9 +2,17 @@ from rest_framework import serializers
 from authen.models import CustomUser
 from courses.models.course_model import Course
 from users.models.user_course import UserCourse
+from courses.models.course_supervisor_model import CourseSupervisor
 from courses.serializers.course_supervisor_serializer import CourseSupervisorSerializer
 
 class CourseSerializer(serializers.ModelSerializer):
+    # --- QUAN TRỌNG: PHẢI KHAI BÁO DÒNG NÀY ---
+    # Để Django biết đây là trường tính toán, không phải cột DB
+    supervisor_count = serializers.SerializerMethodField()
+    member_count = serializers.SerializerMethodField()
+    # ------------------------------------------
+
+    # Giữ nguyên logic supervisors cũ của bạn
     supervisors = CourseSupervisorSerializer(many=True, read_only=True, source='coursesupervisor_set')
 
     class Meta:
@@ -16,12 +24,19 @@ class CourseSerializer(serializers.ModelSerializer):
             'image',
             'start_date',
             'finish_date',
-            'creator',
             'status',
             'created_at',
             'updated_at',
             'supervisors',
+            'supervisor_count', 
+            'member_count',
         ]
+
+    def get_supervisor_count(self, obj):
+        return CourseSupervisor.objects.filter(course=obj).count()
+
+    def get_member_count(self, obj):
+        return UserCourse.objects.filter(course=obj).count()
 
 class CourseCreateSerializer(serializers.ModelSerializer):
     subjects = serializers.ListField(
