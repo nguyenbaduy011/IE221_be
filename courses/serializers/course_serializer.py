@@ -7,14 +7,26 @@ from courses.models.course_supervisor_model import CourseSupervisor
 from courses.serializers.course_supervisor_serializer import CourseSupervisorSerializer
 
 
+class UserBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ["id", "full_name"]
+
+
+class CourseSupervisorSerializer(serializers.ModelSerializer):
+    supervisor = UserBasicSerializer(read_only=True)
+
+    class Meta:
+        model = CourseSupervisor
+        fields = ["id", "supervisor", "created_at"]
+
+
 class CourseSerializer(serializers.ModelSerializer):
     supervisor_count = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
 
     supervisors = CourseSupervisorSerializer(
-        many=True,
-        read_only=True,
-        source="coursesupervisor_set"
+        many=True, read_only=True, source="coursesupervisor_set"
     )
 
     class Meta:
@@ -68,6 +80,7 @@ class CourseCreateSerializer(serializers.ModelSerializer):
 
     def validate_subjects(self, value):
         from subjects.models.subject import Subject
+
         for subject_id in value:
             if not Subject.objects.filter(id=subject_id).exists():
                 raise serializers.ValidationError(
