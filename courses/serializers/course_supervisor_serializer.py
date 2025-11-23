@@ -131,3 +131,15 @@ class AddTraineeSerializer(serializers.Serializer):
             )
 
         return value
+
+
+# Serializer để thêm Supervisor (nhận list ID)
+class AddSupervisorSerializer(serializers.Serializer):
+    supervisor_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=CustomUser.objects.filter(role="SUPERVISOR")
+    )
+
+
+# Serializer để xóa (nhận ID chung)
+class DeleteIDSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
