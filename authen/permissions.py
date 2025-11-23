@@ -150,3 +150,11 @@ class IsCommentOwnerOrAdmin(permissions.BasePermission):
 
         # UPDATE: Chỉ Owner
         return obj.user == request.user
+    
+class IsOwner(permissions.BasePermission):
+    """
+    Chỉ cho phép chủ sở hữu của object thực hiện thao tác
+    """
+    def has_object_permission(self, request, view, obj):
+        # obj ở đây là instance của UserTask
+        return obj.user == request.user
