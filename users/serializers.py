@@ -197,27 +197,41 @@ class TraineeTaskUpdateSerializer(serializers.ModelSerializer):
         return value
     
 
+class TraineeTaskDetailSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='task.name', read_only=True)
+    
+    class Meta:
+        model = UserTask
+        fields = ['id', 'name', 'status', 'spent_time', 'submission_file']
+
+
+# 2. Cập nhật TraineeEnrolledSubjectSerializer (Tận dụng class đã có)
 class TraineeEnrolledSubjectSerializer(serializers.ModelSerializer):
-    # 1. Thông tin môn học
+    # --- Các trường đã có ---
     subject_name = serializers.CharField(source='course_subject.subject.name', read_only=True)
     max_score = serializers.IntegerField(source='course_subject.subject.max_score', read_only=True)
     estimated_time_days = serializers.IntegerField(source='course_subject.subject.estimated_time_days', read_only=True)
     
-    # 2. Ngày quy định (Từ CourseSubject hoặc Course)
-    # Lưu ý: Giả sử model CourseSubject có field start_date/finish_date. 
-    # Nếu không, bạn cần trỏ về 'course_subject.course.start_date'
     start_date = serializers.DateField(source='course_subject.start_date', read_only=True) 
     deadline = serializers.DateField(source='course_subject.finish_date', read_only=True)
-
-    # 3. Ngày thực tế (Cho phép chỉnh sửa từ Frontend nên không để read_only)
     actual_start_day = serializers.DateTimeField(source='started_at', required=False)
     actual_end_day = serializers.DateTimeField(source='completed_at', required=False)
 
-    # 4. Logic Button: Đếm số task chưa xong
-    unfinished_tasks_count = serializers.SerializerMethodField()
-
     formatted_score = serializers.SerializerMethodField()
     duration_text = serializers.SerializerMethodField()
+    
+    # --- CÁC TRƯỜNG BỔ SUNG CHO FRONTEND ---
+    
+    # 1. Danh sách Tasks: Dùng serializer mới định nghĩa ở trên
+    tasks = TraineeTaskDetailSerializer(source='user_tasks', many=True, read_only=True)
+    
+    # 2. Danh sách Comments: TÁI SỬ DỤNG CommentSerializer đã có
+    # (CommentSerializer đã có logic hiển thị user, content, created_at rồi)
+    comments = serializers.SerializerMethodField()
+    
+    # 3. Thông tin Header (Student & Course)
+    student = serializers.SerializerMethodField()
+    course = serializers.SerializerMethodField()
 
     class Meta:
         model = UserSubject
@@ -227,15 +241,11 @@ class TraineeEnrolledSubjectSerializer(serializers.ModelSerializer):
             'status', 
             'score', 'max_score', 'formatted_score',
             'estimated_time_days', 'duration_text',
-            # New fields
             'start_date', 'deadline', 
             'actual_start_day', 'actual_end_day',
-            'unfinished_tasks_count'
+            # Các trường mới thêm vào fields
+            'tasks', 'comments', 'student', 'course'
         ]
-
-    def get_unfinished_tasks_count(self, obj):
-        # Đếm số task có status = NOT_DONE thuộc về UserSubject này
-        return obj.user_tasks.filter(status=UserTask.Status.NOT_DONE).count()
 
     def get_formatted_score(self, obj):
         current_score = obj.score if obj.score is not None else "--"
@@ -245,3 +255,24 @@ class TraineeEnrolledSubjectSerializer(serializers.ModelSerializer):
     def get_duration_text(self, obj):
         days = obj.course_subject.subject.estimated_time_days
         return f"(Time: {days} day)"
+
+    def get_comments(self, obj):
+        # Lấy comment theo ContentType của UserSubject
+        content_type = ContentType.objects.get_for_model(UserSubject)
+        comments = Comment.objects.filter(content_type=content_type, object_id=obj.id).order_by('-created_at')
+        # Tận dụng CommentSerializer đã có sẵn trong file
+        return CommentSerializer(comments, many=True).data
+
+    def get_student(self, obj):
+        return {
+            "name": obj.user.full_name,
+            # Có thể thêm avatar nếu User model có
+        }
+
+    def get_course(self, obj):
+        return {
+            "name": obj.user_course.course.name,
+            "start_date": obj.user_course.course.start_date,
+            "finish_date": obj.user_course.course.finish_date,
+            "status": obj.user_course.status
+        }
