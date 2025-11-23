@@ -4,19 +4,29 @@ from rest_framework.routers import DefaultRouter
 from subjects.views.supervisor_views import (
     SupervisorSubjectListView, 
     SupervisorSubjectDetailView,
-    SupervisorTaskViewSet
+    TaskViewSet,
+    SupervisorCategoryViewSet
 )
 from subjects.views.trainee_views import TraineeSubjectListView, TraineeSubjectDetailView
 
-# Tạo router cho các ViewSet của Supervisor
+# --- Shared Router ---
+# TaskViewSet dùng chung, URL dạng: /tasks/
+router = DefaultRouter()
+router.register(r'tasks', TaskViewSet, basename='task') 
+
+# --- Supervisor Specific Router ---
 supervisor_router = DefaultRouter()
-# Đăng ký 'tasks' -> sẽ tạo ra các url: /supervisor/tasks/, /supervisor/tasks/{id}/
-supervisor_router.register(r'tasks', SupervisorTaskViewSet, basename='supervisor-task')
+supervisor_router.register(r'categories', SupervisorCategoryViewSet, basename='supervisor-category')
+# URL sẽ là: /supervisor/categories/
 
 urlpatterns = [
-    # --- Supervisor Namespace ---
-    
-    # 1. Subjects (APIView truyền thống)
+    # --- Include Shared Router URLs ---
+    path('', include(router.urls)),
+
+    # --- Include Supervisor Router URLs ---
+    path('supervisor/', include(supervisor_router.urls)),
+
+    # --- Supervisor Namespace (Các APIView thủ công) ---
     path(
         'supervisor/subjects/', 
         SupervisorSubjectListView.as_view(), 
@@ -27,11 +37,6 @@ urlpatterns = [
         SupervisorSubjectDetailView.as_view(), 
         name='supervisor-subject-detail'
     ),
-
-    # 2. Tasks (Sử dụng Router)
-    # Include router urls vào path 'supervisor/'
-    path('supervisor/', include(supervisor_router.urls)),
-
 
     # --- Trainee Namespace ---
     path(

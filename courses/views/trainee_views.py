@@ -9,7 +9,33 @@ from users.models.user_subject import UserSubject
 from courses.serializers.course_serializer import CourseSerializer
 from courses.serializers.course_supervisor_serializer import CourseSupervisorSerializer, UserBasicSerializer
 from courses.serializers.course_serializer import UserCourseMemberSerializer
+from courses.serializers.course_trainee_serializers import TraineeCourseListSerializer
 from courses.selectors import get_all_courses, get_course_by_id
+
+class TraineeMyCoursesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # 1. Lấy danh sách khóa học user đang tham gia
+        # 'user_courses' là related_name trong model UserCourse
+        my_courses = Course.objects.filter(
+            user_courses__user=user
+        ).distinct().order_by('-created_at')
+        
+        # 2. Tối ưu query (Eager loading)
+        # Lấy trước dữ liệu supervisor để tránh lỗi N+1 query
+        my_courses = my_courses.prefetch_related('supervisors__supervisor')
+
+        # 3. Serialize (Truyền context request để tính progress)
+        serializer = TraineeCourseListSerializer(
+            my_courses, 
+            many=True, 
+            context={'request': request}
+        )
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TraineeCourseDetailView(APIView):
     permissions_classes = [permissions.IsAuthenticated]
