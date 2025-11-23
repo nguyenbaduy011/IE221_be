@@ -1,6 +1,7 @@
 from django.urls import path, include
 from courses.views.supervisor_views import *
 from courses.views.trainee_views import *
+from courses.views.admin_views import *
 
 urlpatterns = [
     path(
