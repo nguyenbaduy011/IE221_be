@@ -177,3 +177,71 @@ class CommentSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return comment
+    
+
+class TraineeTaskUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserTask
+        fields = ['id', 'status', 'spent_time', 'submission_file']
+        extra_kwargs = {
+            'submission_file': {'required': False},
+            'spent_time': {'required': False}
+        }
+
+    def validate_spent_time(self, value):
+        """
+        Tự động làm tròn thành 1 chữ số thập phân khi validate dữ liệu đầu vào
+        """
+        if value is not None:
+            return round(value, 1)
+        return value
+    
+
+class TraineeEnrolledSubjectSerializer(serializers.ModelSerializer):
+    # 1. Thông tin môn học
+    subject_name = serializers.CharField(source='course_subject.subject.name', read_only=True)
+    max_score = serializers.IntegerField(source='course_subject.subject.max_score', read_only=True)
+    estimated_time_days = serializers.IntegerField(source='course_subject.subject.estimated_time_days', read_only=True)
+    
+    # 2. Ngày quy định (Từ CourseSubject hoặc Course)
+    # Lưu ý: Giả sử model CourseSubject có field start_date/finish_date. 
+    # Nếu không, bạn cần trỏ về 'course_subject.course.start_date'
+    start_date = serializers.DateField(source='course_subject.start_date', read_only=True) 
+    deadline = serializers.DateField(source='course_subject.finish_date', read_only=True)
+
+    # 3. Ngày thực tế (Cho phép chỉnh sửa từ Frontend nên không để read_only)
+    actual_start_day = serializers.DateTimeField(source='started_at', required=False)
+    actual_end_day = serializers.DateTimeField(source='completed_at', required=False)
+
+    # 4. Logic Button: Đếm số task chưa xong
+    unfinished_tasks_count = serializers.SerializerMethodField()
+
+    formatted_score = serializers.SerializerMethodField()
+    duration_text = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserSubject
+        fields = [
+            'id', 
+            'subject_name', 
+            'status', 
+            'score', 'max_score', 'formatted_score',
+            'estimated_time_days', 'duration_text',
+            # New fields
+            'start_date', 'deadline', 
+            'actual_start_day', 'actual_end_day',
+            'unfinished_tasks_count'
+        ]
+
+    def get_unfinished_tasks_count(self, obj):
+        # Đếm số task có status = NOT_DONE thuộc về UserSubject này
+        return obj.user_tasks.filter(status=UserTask.Status.NOT_DONE).count()
+
+    def get_formatted_score(self, obj):
+        current_score = obj.score if obj.score is not None else "--"
+        max_score = obj.course_subject.subject.max_score
+        return f"{current_score}/{max_score}"
+
+    def get_duration_text(self, obj):
+        days = obj.course_subject.subject.estimated_time_days
+        return f"(Time: {days} day)"

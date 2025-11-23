@@ -1,18 +1,32 @@
 from django.contrib.contenttypes.models import ContentType
+from rest_framework.views import APIView
+from users.models.user_subject import UserSubject
+from authen import permissions
 from users.models.comment import Comment
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q 
 from authen.models import CustomUser
-from authen.permissions import IsAdminRole, IsAdminOrSupervisor, IsCommentOwnerOrAdmin # Import thêm IsAdminOrSupervisor
-from .serializers import (
+from authen.permissions import IsAdminRole, IsAdminOrSupervisor, IsCommentOwnerOrAdmin, IsOwner, IsTraineeRole # Import thêm IsAdminOrSupervisor
+from users.serializers import (
     AdminUserListSerializer,
     AdminUserCreateSerializer,
     AdminUserUpdateSerializer,
     AdminUserBulkCreateSerializer,
-    CommentSerializer
+    CommentSerializer,
+    TraineeEnrolledSubjectSerializer,
+    TraineeTaskUpdateSerializer
 )
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import viewsets, mixins, status
+from rest_framework.response import Response
+
+from rest_framework.parsers import MultiPartParser, FormParser
+
+from users.models.user_task import UserTask
+
+
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -205,3 +219,125 @@ class CommentViewSet(viewsets.ModelViewSet):
                 return queryset.none()
         
         return queryset
+
+class UserTaskViewSet(mixins.RetrieveModelMixin, 
+                      mixins.UpdateModelMixin, 
+                      viewsets.GenericViewSet):
+    """
+    API cho Trainee tương tác với Task của mình:
+    - PATCH /api/user-tasks/{id}/: Update status, spent_time, upload file
+    """
+    serializer_class = TraineeTaskUpdateSerializer
+    permission_classes = [IsAuthenticated, IsOwner]
+    parser_classes = (MultiPartParser, FormParser) # Quan trọng để upload file
+
+    def get_queryset(self):
+        # Chỉ lấy các task thuộc về user đang đăng nhập
+        return UserTask.objects.filter(user=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        # Support cả PUT và PATCH
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Logic: Nếu checkbox checked -> Status = DONE, unchecked -> NOT_DONE
+        # Frontend gửi lên: status=1 (Done) hoặc status=0 (Not Done)
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response({
+            "message": "Cập nhật task thành công",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+class TraineeMySubjectsView(APIView):
+    """
+    API lấy danh sách các môn học CỦA TÔI (My Subjects)
+    kèm theo điểm số [b]/[c]
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # Query lấy tất cả UserSubject của user hiện tại
+        # Sử dụng select_related để tối ưu truy vấn (tránh N+1 query)
+        # Đi từ UserSubject -> CourseSubject -> Subject
+        my_subjects = UserSubject.objects.filter(user=user).select_related(
+            'course_subject', 
+            'course_subject__subject'
+        ).order_by('-created_at')
+
+        serializer = TraineeEnrolledSubjectSerializer(my_subjects, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+class TraineeSubjectActionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet xử lý các hành động của Trainee với Subject
+    """
+    serializer_class = TraineeEnrolledSubjectSerializer
+    permission_classes = [IsTraineeRole] 
+
+    def get_queryset(self):
+        return UserSubject.objects.filter(user=self.request.user)
+
+    # API cập nhật ngày thực tế (Actual Start/End)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Chỉ cho phép update ngày bắt đầu/kết thúc thực tế
+        # Frontend gửi lên: { "actual_start_day": "2023-11-20", "actual_end_day": ... }
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response({
+            "message": "Cập nhật thời gian thực tế thành công",
+            "data": serializer.data
+        })
+
+    # API Xử lý nút "Hoàn thành" (Dùng cho cả nút Inprogress và Finish)
+    @action(detail=True, methods=['post'])
+    def finish_subject(self, request, pk=None):
+        user_subject = self.get_object()
+
+        with transaction.atomic():
+            # 1. Update trạng thái tất cả các Task con thành DONEvvv
+            user_tasks = user_subject.user_tasks.all()
+            user_tasks.update(status=UserTask.Status.DONE)
+
+            # 2. Update trạng thái Môn học
+            # Logic: Kiểm tra xem nộp đúng hạn hay trễ hạn
+            now = timezone.now()
+            deadline = user_subject.course_subject.finish_date
+            
+            # Mặc định chuyển thành 'Finish' (Logic chi tiết Status tùy bạn: EARLY, ON_TIME, OVERDUE...)
+            # Dựa trên file user_subject.py của bạn:
+            if deadline and now.date() <= deadline:
+                new_status = UserSubject.Status.FINISHED_ON_TIME
+            elif deadline and now.date() > deadline:
+                new_status = UserSubject.Status.FINISED_BUT_OVERDUE
+            else:
+                new_status = UserSubject.Status.FINISHED_ON_TIME # Fallback
+
+            user_subject.status = new_status
+            
+            # Cập nhật ngày kết thúc thực tế nếu chưa có
+            if not user_subject.completed_at:
+                user_subject.completed_at = now
+            
+            user_subject.save()
+
+        # Trả về data mới nhất để Frontend update UI
+        serializer = self.get_serializer(user_subject)
+        return Response({
+            "message": "Đã hoàn thành môn học và tất cả nhiệm vụ.",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
