@@ -4,6 +4,7 @@ from authen.models import CustomUser
 from courses.models.course_subject import CourseSubject
 from users.models.user_course import UserCourse
 
+
 class UserSubject(models.Model):
     class Status(models.IntegerChoices):
         NOT_STARTED = 0, "Not Started"
@@ -13,10 +14,15 @@ class UserSubject(models.Model):
         FINISED_BUT_OVERDUE = 4, "Finished but overdue"
         OVERDUE_AND_NOT_FINISHED = 5, "Overdue and not finished"
 
-
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_subjects')
-    user_course = models.ForeignKey(UserCourse, on_delete=models.CASCADE, related_name='user_subjects')
-    course_subject = models.ForeignKey(CourseSubject, on_delete=models.CASCADE, related_name='user_subjects')
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="user_subjects"
+    )
+    user_course = models.ForeignKey(
+        UserCourse, on_delete=models.CASCADE, related_name="user_subjects"
+    )
+    course_subject = models.ForeignKey(
+        CourseSubject, on_delete=models.CASCADE, related_name="user_subjects"
+    )
     status = models.IntegerField(choices=Status.choices, default=Status.NOT_STARTED)
     score = models.FloatField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
@@ -25,7 +31,7 @@ class UserSubject(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user', 'course_subject', 'user_course')
+        unique_together = ("user", "course_subject", "user_course")
 
     def __str__(self):
         return f"{self.user.email} - {self.subject.name}"
@@ -33,6 +39,14 @@ class UserSubject(models.Model):
     def save(self, *args, **kwargs):
         if self.status == self.Status.IN_PROGRESS and self.started_at is None:
             self.started_at = timezone.now()
-        if self.status in [self.Status.FINISHED_EARLY, self.Status.FINISHED_ON_TIME, self.Status.FINISED_BUT_OVERDUE] and self.completed_at is None:
+        if (
+            self.status
+            in [
+                self.Status.FINISHED_EARLY,
+                self.Status.FINISHED_ON_TIME,
+                self.Status.FINISED_BUT_OVERDUE,
+            ]
+            and self.completed_at is None
+        ):
             self.completed_at = timezone.now()
         super().save(*args, **kwargs)
