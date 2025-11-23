@@ -18,7 +18,10 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from courses.serializers.course_supervisor_serializer import *
 from courses.selectors import get_all_courses, get_course_by_id
-from courses.serializers.course_serializer import CourseSerializer, CourseCreateSerializer
+from courses.serializers.course_serializer import (
+    CourseSerializer,
+    CourseCreateSerializer,
+)
 
 class SupervisorCourseListView(APIView):
     serializer_class = CourseSerializer
@@ -50,7 +53,7 @@ class SupervisorCourseDetailView(APIView):
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
-    def get(self, request, course_id):
+    def get(self, course_id):
         user = self.request.user
         course = get_course_by_id(course_id)
         if not course:
@@ -538,6 +541,8 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class SupervisorDashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
@@ -576,8 +581,9 @@ class SupervisorDashboardStatsView(APIView):
                 "action": "joined course",
                 "target": item.course.name,
                 "time": item.joined_at,
-                "avatar": ""
-            } for item in recent_joins
+                "avatar": "",
+            }
+            for item in recent_joins
         ]
 
         return Response({
