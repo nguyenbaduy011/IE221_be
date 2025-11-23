@@ -36,7 +36,7 @@ class AdminCourseDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
     # Nếu bạn có permission IsAdmin riêng thì thêm vào đây, ví dụ: [permissions.IsAuthenticated, IsAdmin]
 
-    def get(self, course_id):
+    def get(self, request, course_id):
         course = get_course_by_id(course_id)
         if not course:
             return Response(
@@ -45,3 +45,18 @@ class AdminCourseDetailView(APIView):
 
         serializer = self.serializer_class(course)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, course_id):
+        course = get_course_by_id(course_id)
+        if not course:
+            return Response(
+                {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = self.serializer_class(course, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
