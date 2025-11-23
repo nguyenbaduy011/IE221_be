@@ -74,3 +74,15 @@ class AddTraineeSerializer(serializers.Serializer):
                     f"User with ID {trainee.id} is not a trainee."
                 )
         return value
+
+
+# Serializer để thêm Supervisor (nhận list ID)
+class AddSupervisorSerializer(serializers.Serializer):
+    supervisor_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=CustomUser.objects.filter(role="SUPERVISOR")
+    )
+
+
+# Serializer để xóa (nhận ID chung)
+class DeleteIDSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
