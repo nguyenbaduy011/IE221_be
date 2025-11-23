@@ -21,7 +21,9 @@ from courses.selectors import get_all_courses, get_course_by_id
 from courses.serializers.course_serializer import (
     CourseSerializer,
     CourseCreateSerializer,
+    CourseSubjectSerializer,
 )
+
 
 class SupervisorCourseListView(APIView):
     serializer_class = CourseSerializer
@@ -53,7 +55,7 @@ class SupervisorCourseDetailView(APIView):
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
-    def get(self, course_id):
+    def get(self, request, course_id):
         user = self.request.user
         course = get_course_by_id(course_id)
         if not course:
@@ -105,7 +107,6 @@ class AddSubjectToCourseView(APIView):
                         course=course,
                         subject=subject,
                     )
-
 
                     template_tasks = Task.objects.filter(
                         taskable_type=Task.TaskType.SUBJECT, taskable_id=subject.id
@@ -171,7 +172,7 @@ class AddTraineeToCourseView(APIView):
     permission_classes = [
         permissions.IsAuthenticated,
         IsAdminOrSupervisor,
-    ]  
+    ]
 
     def post(self, request, course_id):
         course = get_object_or_404(Course, pk=course_id)
@@ -198,9 +199,7 @@ class AddTraineeToCourseView(APIView):
 
         added_count = 0
         skipped_count = 0
-        all_user_tasks_to_create = (
-            []
-        ) 
+        all_user_tasks_to_create = []
 
         try:
             with transaction.atomic():
@@ -258,6 +257,7 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
     @action(detail=True, methods=["post"], url_path="add-supervisors")
     def add_supervisors(self, request, pk=None):
         course = self.get_object()
@@ -325,12 +325,9 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                 tasks_map[task.taskable_id] = []
             tasks_map[task.taskable_id].append(task)
 
-
         added_count = 0
         skipped_count = 0
-        all_user_tasks_to_create = (
-            []
-        )  
+        all_user_tasks_to_create = []
 
         try:
             with transaction.atomic():
@@ -407,118 +404,117 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
     @action(detail=True, methods=["post"], url_path="add-subject")
     def add_subject(self, request, pk=None):
-        course = self.get_object()
-
-        serializer = AddSubjectTaskSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        data = serializer.validated_data
-        subject_id = data.get("subject_id")
-        task_names = data.get("tasks", [])
-
         try:
+            course = self.get_object()
+
+            # Validate input
+            serializer = AddSubjectTaskSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            data = serializer.validated_data
+            subject_id = data.get("subject_id")
+            task_names = data.get("tasks", [])
+
             with transaction.atomic():
                 final_tasks_for_user = []
 
+                # CASE A: THÊM SUBJECT CÓ SẴN
                 if subject_id:
                     subject = Subject.objects.get(pk=subject_id)
+                    # Tạo liên kết Course - Subject
+                    course_subject = CourseSubject.objects.create(
+                        course=course,
+                        subject=subject,
+                    )
+
+                    # Clone Tasks
+                    template_tasks = Task.objects.filter(
+                        taskable_type=Task.TaskType.SUBJECT, taskable_id=subject.id
+                    )
+                    new_tasks = [
+                        Task(
+                            name=t.name,
+                            taskable_type=Task.TaskType.COURSE_SUBJECT,
+                            taskable_id=course_subject.id,
+                        )
+                        for t in template_tasks
+                    ]
+                    # Task mới từ input
+                    for name in task_names:
+                        new_tasks.append(
+                            Task(
+                                name=name,
+                                taskable_type=Task.TaskType.COURSE_SUBJECT,
+                                taskable_id=course_subject.id,
+                            )
+                        )
+
+                    if new_tasks:
+                        final_tasks_for_user = Task.objects.bulk_create(new_tasks)
+                    message = "Added existing subject successfully."
+
+                # CASE B: TẠO SUBJECT MỚI
+                else:
+                    subject = Subject.objects.create(
+                        name=data["name"],
+                        max_score=data.get("max_score", 10),
+                        estimated_time_days=data.get("estimated_time_days", 1),
+                    )
 
                     course_subject = CourseSubject.objects.create(
                         course=course,
                         subject=subject,
                     )
 
-                    template_tasks = Task.objects.filter(
-                        taskable_type=Task.TaskType.SUBJECT, taskable_id=subject.id
-                    )
-
-                    new_tasks = []
-                    for template in template_tasks:
-                        new_tasks.append(
-                            Task(
-                                name=template.name,
-                                taskable_type=Task.TaskType.COURSE_SUBJECT,  
-                                taskable_id=course_subject.id,
-                            )
+                    new_tasks = [
+                        Task(
+                            name=name,
+                            taskable_type=Task.TaskType.COURSE_SUBJECT,
+                            taskable_id=course_subject.id,
                         )
-                    for name in task_names:
-                        new_tasks.append(
-                            Task(
-                                name=name,
-                                taskable_type=Task.TaskType.COURSE_SUBJECT,  
-                                taskable_id=course_subject.id,
-                            )
-                        )
-                    created_tasks = Task.objects.bulk_create(new_tasks)
-                    final_tasks_for_user = created_tasks
-                    message = "Added existing subject and cloned tasks successfully."
-                else:
-                    subject = Subject.objects.create(
-                        name=data["name"],
-                        max_score=data["max_score"],
-                        estimated_time_days=data["estimated_time_days"],
-                        image=data.get("image"),
-                    )
+                        for name in task_names
+                    ]
 
-                    new_tasks = []
-                    for name in task_names:
-                        new_tasks.append(
-                            Task(
-                                name=name,
-                                taskable_type=Task.TaskType.SUBJECT,  
-                                taskable_id=subject.id,
-                            )
-                        )
+                    if new_tasks:
+                        final_tasks_for_user = Task.objects.bulk_create(new_tasks)
+                    message = "Created new subject successfully."
 
-                    created_tasks = Task.objects.bulk_create(new_tasks)
-
-                    course_subject = CourseSubject.objects.create(
-                        course=course, subject=subject
-                    )
-
-                    final_tasks_for_user = created_tasks
-                    message = "Created new subject and template tasks successfully."
-
+                # --- ĐỒNG BỘ CHO TRAINEE (QUAN TRỌNG) ---
                 existing_user_courses = UserCourse.objects.filter(course=course)
-
                 if existing_user_courses.exists():
-                    new_user_subjects = []
-                    new_user_tasks = []
-
+                    new_us = []
+                    new_ut = []
                     for uc in existing_user_courses:
-
-                        user_subject = UserSubject.objects.create(
+                        us = UserSubject.objects.create(
                             user=uc.user,
                             user_course=uc,
                             course_subject=course_subject,
                             status=UserSubject.Status.NOT_STARTED,
                         )
-
-                        for task in final_tasks_for_user:
-                            new_user_tasks.append(
+                        for t in final_tasks_for_user:
+                            new_ut.append(
                                 UserTask(
                                     user=uc.user,
-                                    task=task,
-                                    user_subject=user_subject,
+                                    task=t,
+                                    user_subject=us,
                                     status=UserTask.Status.NOT_DONE,
                                 )
                             )
+                    if new_ut:
+                        UserTask.objects.bulk_create(new_ut)
 
-                    if new_user_tasks:
-                        UserTask.objects.bulk_create(new_user_tasks)
-
-                return Response(
-                    {"message": message, "subject_id": subject.id},
-                    status=status.HTTP_201_CREATED,
-                )
+            return Response({"message": message}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            # In lỗi ra terminal để debug
+            import traceback
+
+            traceback.print_exc()
             return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=True, methods=["delete"], url_path="remove-subject")
@@ -542,6 +538,128 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, course_id):
+        course = get_course_by_id(course_id)
+        if not course:
+            return Response(
+                {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # partial=True cho phép chỉ gửi những trường cần sửa (ví dụ chỉ sửa tên)
+        serializer = self.serializer_class(course, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"], url_path="trainees")
+    def get_trainees(self, request, pk=None):
+        course = self.get_object()
+
+        # Cách 1: Lấy User thông qua quan hệ ngược user_courses
+        # Đảm bảo UserCourse có related_name='user_courses' tới Course hoặc query thủ công:
+
+        # Lấy tất cả User ID đang tham gia khóa học này
+        user_ids = UserCourse.objects.filter(course=course).values_list(
+            "user_id", flat=True
+        )
+
+        # Lấy danh sách User object
+        trainees = CustomUser.objects.filter(id__in=user_ids)
+
+        # Serialize
+        serializer = UserBasicSerializer(trainees, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="subjects")
+    def get_subjects(self, request, pk=None):
+        course = self.get_object()
+
+        # Lấy danh sách và sắp xếp
+        course_subjects = CourseSubject.objects.filter(course=course).order_by(
+            "position"
+        )
+
+        # Dùng Serializer có nested subject
+        serializer = CourseSubjectSerializer(course_subjects, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="reorder-subjects")
+    def reorder_subjects(self, request, pk=None):
+        """
+        Nhận vào một list các object: [{ "id": 1, "position": 1 }, { "id": 2, "position": 2 }]
+        id ở đây là id của CourseSubject
+        """
+        course = self.get_object()
+        items = request.data.get("items", [])
+
+        if not items:
+            return Response(
+                {"detail": "No items provided."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                # Duyệt qua danh sách gửi lên và update position
+                for item in items:
+                    cs_id = item.get("id")
+                    new_pos = item.get("position")
+
+                    # Update từng cái (hoặc dùng bulk_update nếu muốn tối ưu hơn nữa)
+                    CourseSubject.objects.filter(id=cs_id, course=course).update(
+                        position=new_pos
+                    )
+
+            return Response(
+                {"message": "Order updated successfully."}, status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=["post"], url_path="add-task")
+    def add_task(self, request, pk=None):
+        course = self.get_object()
+        cs_id = request.data.get("course_subject_id")
+        name = request.data.get("name")
+
+        if not cs_id or not name:
+            return Response({"detail": "Missing info"}, status=400)
+
+        try:
+            course_subject = CourseSubject.objects.get(id=cs_id, course=course)
+
+            with transaction.atomic():
+                # 1. Tạo Task
+                task = Task.objects.create(
+                    name=name,
+                    taskable_type=Task.TaskType.COURSE_SUBJECT,
+                    taskable_id=course_subject.id,
+                )
+
+                # 2. Đồng bộ UserTask cho học viên
+                user_subjects = UserSubject.objects.filter(
+                    course_subject=course_subject
+                )
+                user_tasks = [
+                    UserTask(
+                        user=us.user,
+                        task=task,
+                        user_subject=us,
+                        status=UserTask.Status.NOT_DONE,
+                    )
+                    for us in user_subjects
+                ]
+                UserTask.objects.bulk_create(user_tasks)
+
+            return Response({"message": "Task added"}, status=201)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=500)
+
 
 class SupervisorDashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
@@ -550,22 +668,39 @@ class SupervisorDashboardStatsView(APIView):
         user = request.user
         my_courses = Course.objects.filter(course_supervisors=user)
 
-        active_courses_count = my_courses.filter(status=Course.Status.IN_PROGRESS).count()
+        active_courses_count = my_courses.filter(
+            status=Course.Status.IN_PROGRESS
+        ).count()
         upcoming_count = my_courses.filter(status=Course.Status.NOT_STARTED).count()
         finished_count = my_courses.filter(status=Course.Status.FINISHED).count()
 
-        total_trainees = UserCourse.objects.filter(course__in=my_courses).values('user').distinct().count()
+        total_trainees = (
+            UserCourse.objects.filter(course__in=my_courses)
+            .values("user")
+            .distinct()
+            .count()
+        )
 
-        related_user_subjects = UserSubject.objects.filter(user_course__course__in=my_courses)
+        related_user_subjects = UserSubject.objects.filter(
+            user_course__course__in=my_courses
+        )
         total_subjects_taken = related_user_subjects.count()
-        finished_subjects = related_user_subjects.filter(
-            status__in=[
-                UserSubject.Status.FINISHED_EARLY,
-                UserSubject.Status.FINISHED_ON_TIME,
-                UserSubject.Status.FINISED_BUT_OVERDUE, 
-            ]
-        ).count() if total_subjects_taken > 0 else 0
-        completion_rate = round((finished_subjects / total_subjects_taken) * 100, 2) if total_subjects_taken else 0.0
+        finished_subjects = (
+            related_user_subjects.filter(
+                status__in=[
+                    UserSubject.Status.FINISHED_EARLY,
+                    UserSubject.Status.FINISHED_ON_TIME,
+                    UserSubject.Status.FINISED_BUT_OVERDUE,
+                ]
+            ).count()
+            if total_subjects_taken > 0
+            else 0
+        )
+        completion_rate = (
+            round((finished_subjects / total_subjects_taken) * 100, 2)
+            if total_subjects_taken
+            else 0.0
+        )
 
         chart_data = [
             {"name": "Active", "value": active_courses_count, "color": "#3b82f6"},
@@ -573,7 +708,11 @@ class SupervisorDashboardStatsView(APIView):
             {"name": "Completed", "value": finished_count, "color": "#10b981"},
         ]
 
-        recent_joins = UserCourse.objects.filter(course__in=my_courses).select_related('user', 'course').order_by('-joined_at')[:5]
+        recent_joins = (
+            UserCourse.objects.filter(course__in=my_courses)
+            .select_related("user", "course")
+            .order_by("-joined_at")[:5]
+        )
         activities = [
             {
                 "id": item.id,
@@ -586,32 +725,38 @@ class SupervisorDashboardStatsView(APIView):
             for item in recent_joins
         ]
 
-        return Response({
-            "active_courses": active_courses_count,
-            "total_trainees": total_trainees,
-            "completion_rate": completion_rate,
-            "chart_data": chart_data,
-            "recent_activities": activities,
-        }, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "active_courses": active_courses_count,
+                "total_trainees": total_trainees,
+                "completion_rate": completion_rate,
+                "chart_data": chart_data,
+                "recent_activities": activities,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 class SupervisorCourseStudentsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
     def get(self, request, course_id):
-        classmates = UserCourse.objects.filter(
-            course_id=course_id
-        ).select_related('user')
+        classmates = UserCourse.objects.filter(course_id=course_id).select_related(
+            "user"
+        )
 
         data = []
         for item in classmates:
             avatar_url = None
 
-            data.append({
-                "id": item.user.id,
-                "full_name": item.user.full_name,
-                "email": item.user.email,
-                "avatar": avatar_url
-            })
+            data.append(
+                {
+                    "id": item.user.id,
+                    "full_name": item.user.full_name,
+                    "email": item.user.email,
+                    "avatar": avatar_url,
+                }
+            )
 
         return Response({"data": data}, status=status.HTTP_200_OK)
 
@@ -621,25 +766,31 @@ class SupervisorUserSubjectDetailView(APIView):
 
     def get(self, request, subject_id, student_id):
         user_subject = get_object_or_404(
-            UserSubject, 
-            course_subject_id=subject_id, 
-            user_id=student_id
+            UserSubject, course_subject_id=subject_id, user_id=student_id
         )
         course_subject = user_subject.course_subject
-        
-        tasks_qs = UserTask.objects.filter(user_subject=user_subject).select_related('task')
-        tasks_data = [{
-            "id": t.id,
-            "name": t.task.name if t.task else "Unnamed Task",
-            "status": "DONE" if (t.status == 1 or t.status == "COMPLETED") else "NOT_DONE"
-        } for t in tasks_qs]
+
+        tasks_qs = UserTask.objects.filter(user_subject=user_subject).select_related(
+            "task"
+        )
+        tasks_data = [
+            {
+                "id": t.id,
+                "name": t.task.name if t.task else "Unnamed Task",
+                "status": (
+                    "DONE" if (t.status == 1 or t.status == "COMPLETED") else "NOT_DONE"
+                ),
+            }
+            for t in tasks_qs
+        ]
 
         content_type = ContentType.objects.get_for_model(UserSubject)
-        last_comment = Comment.objects.filter(
-            content_type=content_type, 
-            object_id=user_subject.id
-        ).order_by('-updated_at').first()
-        
+        last_comment = (
+            Comment.objects.filter(content_type=content_type, object_id=user_subject.id)
+            .order_by("-updated_at")
+            .first()
+        )
+
         supervisor_comment = last_comment.content if last_comment else ""
         comment_updated_at = last_comment.updated_at if last_comment else None
 
@@ -654,16 +805,16 @@ class SupervisorUserSubjectDetailView(APIView):
             "end_date": course_subject.finish_date,
             "actual_start_date": user_subject.started_at,
             "actual_end_date": user_subject.completed_at,
-            
-            "score": user_subject.score,                 
+            "score": user_subject.score,
             "max_score": course_subject.subject.max_score,
-            "supervisor_comment": supervisor_comment,   
+            "supervisor_comment": supervisor_comment,
             "comment_updated_at": comment_updated_at,
             "status": "COMPLETED" if user_subject.status == 2 else "IN_PROGRESS",
-            "tasks": tasks_data
+            "tasks": tasks_data,
         }
 
         return Response({"data": response_data}, status=status.HTTP_200_OK)
+
 
 class SupervisorSubjectTaskCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
@@ -673,7 +824,9 @@ class SupervisorSubjectTaskCreateView(APIView):
         name = request.data.get("name")
 
         if not name:
-            return Response({"detail": "Task name is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Task name is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             with transaction.atomic():
@@ -681,39 +834,42 @@ class SupervisorSubjectTaskCreateView(APIView):
                     name=name,
                     taskable_type=Task.TaskType.COURSE_SUBJECT,
                     taskable_id=course_subject.id,
-                    position=0 
+                    position=0,
                 )
 
-                related_user_subjects = UserSubject.objects.filter(course_subject=course_subject)
+                related_user_subjects = UserSubject.objects.filter(
+                    course_subject=course_subject
+                )
 
                 user_tasks = []
                 for us in related_user_subjects:
                     user_tasks.append(
-                        UserTask(
-                            user=us.user,
-                            task=new_task,
-                            user_subject=us,
-                            status=1 
-                        )
+                        UserTask(user=us.user, task=new_task, user_subject=us, status=1)
                     )
-                
+
                 if user_tasks:
                     UserTask.objects.bulk_create(user_tasks)
 
-                return Response({
-                    "message": "Task added to subject and assigned to all students.",
-                    "task_id": new_task.id
-                }, status=status.HTTP_201_CREATED)
+                return Response(
+                    {
+                        "message": "Task added to subject and assigned to all students.",
+                        "task_id": new_task.id,
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
 
         except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class SupervisorUserSubjectAssessmentView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
     def patch(self, request, pk):
         user_subject = get_object_or_404(UserSubject, pk=pk)
-        
+
         score = request.data.get("score")
         comment_content = request.data.get("supervisor_comment")
 
@@ -722,35 +878,45 @@ class SupervisorUserSubjectAssessmentView(APIView):
                 if score is not None:
                     max_score = user_subject.course_subject.subject.max_score
                     if float(score) > max_score:
-                        return Response({"detail": f"Score cannot exceed {max_score}"}, status=400)
+                        return Response(
+                            {"detail": f"Score cannot exceed {max_score}"}, status=400
+                        )
                     user_subject.score = score
                     user_subject.save()
 
                 if comment_content is not None:
                     content_type = ContentType.objects.get_for_model(UserSubject)
-                    
+
                     existing_comments = Comment.objects.filter(
                         content_type=content_type,
                         object_id=user_subject.id,
-                        user=request.user
+                        user=request.user,
                     )
 
                     if existing_comments.count() > 1:
-                        latest_comment = existing_comments.order_by('-updated_at').first()
+                        latest_comment = existing_comments.order_by(
+                            "-updated_at"
+                        ).first()
                         existing_comments.exclude(id=latest_comment.id).delete()
-                    
+
                     Comment.objects.update_or_create(
                         content_type=content_type,
                         object_id=user_subject.id,
                         user=request.user,
-                        defaults={'content': comment_content}
+                        defaults={"content": comment_content},
                     )
 
-            return Response({"message": "Assessment updated successfully."}, status=status.HTTP_200_OK)
-        
+            return Response(
+                {"message": "Assessment updated successfully."},
+                status=status.HTTP_200_OK,
+            )
+
         except Exception as e:
-            print(f"ERROR SAVING ASSESSMENT: {str(e)}") 
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"ERROR SAVING ASSESSMENT: {str(e)}")
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class SupervisorTaskToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
@@ -760,15 +926,16 @@ class SupervisorTaskToggleView(APIView):
         new_status_str = request.data.get("status")
 
         if new_status_str == "DONE":
-            user_task.status = UserTask.Status.DONE 
+            user_task.status = UserTask.Status.DONE
         else:
             user_task.status = UserTask.Status.NOT_DONE
-        
+
         user_task.save()
         return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
 from django.utils import timezone
+
 
 class SupervisorUserSubjectCompleteView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
@@ -778,14 +945,24 @@ class SupervisorUserSubjectCompleteView(APIView):
 
         try:
             with transaction.atomic():
-                user_subject.status = 2 
+                user_subject.status = 2
                 user_subject.completed_at = timezone.now()
                 user_subject.save()
 
                 UserTask.objects.filter(user_subject=user_subject).update(
-                    status=UserTask.Status.COMPLETED 
+                    status=UserTask.Status.COMPLETED
                 )
 
-            return Response({"message": "Subject completed."}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Subject completed."}, status=status.HTTP_200_OK
+            )
         except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CourseSubjectUpdateView(generics.UpdateAPIView):
+    queryset = CourseSubject.objects.all()
+    serializer_class = CourseSubjectSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]

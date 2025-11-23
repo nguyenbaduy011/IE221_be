@@ -2,8 +2,15 @@ from django.urls import path, include
 from courses.views.supervisor_views import *
 from courses.views.trainee_views import *
 from courses.views.admin_views import *
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+# Tạo các đường dẫn: /api/courses/{id}/trainees/, /api/courses/{id}/subjects/
+router.register(r"courses", CourseManagementViewSet, basename="course-management")
 
 urlpatterns = [
+    # 1. URL cho ViewSet (quan trọng để chạy trainees/subjects)
+    path("", include(router.urls)),
     path("admin/courses/", AdminCourseListView.as_view(), name="admin-course-list"),
     path(
         "supervisor/courses/create/",
@@ -26,9 +33,14 @@ urlpatterns = [
         name="supervisor-course-list",
     ),
     path(
-        "supervisor/courses/<int:pk>/",
+        "supervisor/courses/<int:course_id>/",
         SupervisorCourseDetailView.as_view(),
         name="supervisor-course-detail",
+    ),
+    path(
+        "admin/courses/<int:course_id>/",
+        AdminCourseDetailView.as_view(),
+        name="admin-course-detail",
     ),
     path("trainee/courses/", TraineeMyCoursesView.as_view(), name="trainee-my-courses"),
     path(
@@ -125,34 +137,55 @@ urlpatterns = [
     path(
         "supervisor/courses/<int:course_id>/students/",
         SupervisorCourseStudentsView.as_view(),
-        name="supervisor-course-students"
+        name="supervisor-course-students",
     ),
     path(
         "supervisor/subjects/<int:subject_id>/student/<int:student_id>/",
         SupervisorUserSubjectDetailView.as_view(),
-        name="supervisor-user-subject-detail"
+        name="supervisor-user-subject-detail",
     ),
     path(
         "supervisor/subjects/<int:subject_id>/tasks/",
         SupervisorSubjectTaskCreateView.as_view(),
-        name="supervisor-subject-task-create"
+        name="supervisor-subject-task-create",
     ),
-
     path(
         "supervisor/user-subjects/<int:pk>/assessment/",
         SupervisorUserSubjectAssessmentView.as_view(),
-        name="supervisor-user-subject-assessment"
+        name="supervisor-user-subject-assessment",
     ),
-
     path(
         "supervisor/tasks/<int:pk>/",
         SupervisorTaskToggleView.as_view(),
-        name="supervisor-task-toggle"
+        name="supervisor-task-toggle",
     ),
-
     path(
         "supervisor/user-subjects/<int:pk>/complete/",
         SupervisorUserSubjectCompleteView.as_view(),
-        name="supervisor-user-subject-complete"
+        name="supervisor-user-subject-complete",
+    ),
+    path(
+        "admin/courses/<int:pk>/trainees/",
+        CourseManagementViewSet.as_view({"get": "get_trainees"}),
+        name="admin-course-trainees",
+    ),
+    path(
+        "admin/courses/<int:pk>/subjects/",
+        CourseManagementViewSet.as_view({"get": "get_subjects"}),
+        name="admin-course-subjects",
+    ),
+    path(
+        "admin/courses/<int:pk>/reorder-subjects/",
+        CourseManagementViewSet.as_view({"post": "reorder_subjects"}),
+    ),
+    path(
+        "admin/course-subjects/<int:pk>/",
+        CourseSubjectUpdateView.as_view(),
+        name="admin-course-subject-update",
+    ),
+    path(
+        "admin/courses/<int:pk>/add-task/",
+        CourseManagementViewSet.as_view({"post": "add_task"}),
+        name="admin-course-add-task",
     ),
 ]

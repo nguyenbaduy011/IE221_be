@@ -1,10 +1,12 @@
 
 from rest_framework import serializers
-from django.db import transaction
 from authen.models import CustomUser
 from courses.models.course_model import Course
 from users.models.user_course import UserCourse
+from courses.models.course_subject import CourseSubject
 from courses.models.course_supervisor_model import CourseSupervisor
+from subjects.models.task import Task
+from subjects.models.subject import Subject
 from courses.serializers.course_supervisor_serializer import CourseSupervisorSerializer
 
 
@@ -12,6 +14,29 @@ class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["id", "full_name"]
+
+
+# 1. Serializer cho Task
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ["id", "name"]
+
+
+# 2. Serializer cho Subject
+class SubjectDetailSerializer(serializers.ModelSerializer):
+    # Lấy danh sách task thuộc subject này
+    tasks = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subject
+        fields = ["id", "name", "estimated_time_days", "image", "max_score", "tasks"]
+
+    def get_tasks(self, obj):
+        # Logic lấy task của bạn (tuỳ vào model Task bạn quan hệ thế nào)
+        # Ví dụ: return TaskSerializer(obj.tasks.all(), many=True).data
+        # Giả sử bạn có property 'tasks' trong model Subject như code cũ:
+        return TaskSerializer(obj.tasks, many=True).data
 
 
 class CourseSupervisorSerializer(serializers.ModelSerializer):
@@ -22,12 +47,30 @@ class CourseSupervisorSerializer(serializers.ModelSerializer):
         fields = ["id", "supervisor", "created_at"]
 
 
+class CourseSubjectSerializer(serializers.ModelSerializer):
+    subject = SubjectDetailSerializer(read_only=True)
+
+    class Meta:
+        model = CourseSubject
+        # Thêm start_date, finish_date, status vào fields
+        fields = [
+            "id",
+            "course",
+            "subject",
+            "position",
+            "start_date",
+            "finish_date",
+        ]
+
+
 class CourseSerializer(serializers.ModelSerializer):
     supervisor_count = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
 
-    supervisors = CourseSupervisorSerializer(
-        many=True, read_only=True, source="coursesupervisor_set"
+    supervisors = CourseSupervisorSerializer(many=True, read_only=True)
+
+    course_subjects = CourseSubjectSerializer(
+        many=True, read_only=True, source="coursesubject_set"
     )
 
     class Meta:
@@ -43,6 +86,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "supervisors",
+            "course_subjects",
             "supervisor_count",
             "member_count",
         ]
