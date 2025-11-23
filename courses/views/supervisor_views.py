@@ -12,9 +12,9 @@ from users.models.user_subject import UserSubject
 from users.models.user_task import UserTask
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from courses.serializers.course_serializer import CourseSerializer
 from courses.serializers.course_supervisor_serializer import *
 from courses.selectors import get_all_courses, get_course_by_id
+from courses.serializers.course_serializer import CourseSerializer, CourseCreateSerializer
 
 
 class SupervisorCourseListView(APIView):
@@ -283,3 +283,58 @@ class AddTraineeToCourseView(APIView):
             return Response(
                 {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class SupervisorDashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
+    def get(self, request):
+        user = request.user
+        my_courses = Course.objects.filter(course_supervisors=user)
+
+        # Active / Upcoming / Completed
+        active_courses_count = my_courses.filter(status=Course.Status.IN_PROGRESS).count()
+        upcoming_count = my_courses.filter(status=Course.Status.NOT_STARTED).count()
+        finished_count = my_courses.filter(status=Course.Status.FINISHED).count()
+
+        # Tổng số học viên
+        total_trainees = UserCourse.objects.filter(course__in=my_courses).values('user').distinct().count()
+
+        # Completion rate
+        related_user_subjects = UserSubject.objects.filter(user_course__course__in=my_courses)
+        total_subjects_taken = related_user_subjects.count()
+        finished_subjects = related_user_subjects.filter(
+            status__in=[
+                UserSubject.Status.FINISHED_EARLY,
+                UserSubject.Status.FINISHED_ON_TIME,
+                UserSubject.Status.FINISED_BUT_OVERDUE,  # lưu ý typo
+            ]
+        ).count() if total_subjects_taken > 0 else 0
+        completion_rate = round((finished_subjects / total_subjects_taken) * 100, 2) if total_subjects_taken else 0.0
+
+        # Biểu đồ
+        chart_data = [
+            {"name": "Active", "value": active_courses_count, "color": "#3b82f6"},
+            {"name": "Upcoming", "value": upcoming_count, "color": "#f59e0b"},
+            {"name": "Completed", "value": finished_count, "color": "#10b981"},
+        ]
+
+        # Recent activities
+        recent_joins = UserCourse.objects.filter(course__in=my_courses).select_related('user', 'course').order_by('-joined_at')[:5]
+        activities = [
+            {
+                "id": item.id,
+                "user": item.user.full_name or item.user.email,
+                "action": "joined course",
+                "target": item.course.name,
+                "time": item.joined_at,
+                "avatar": ""
+            } for item in recent_joins
+        ]
+
+        return Response({
+            "active_courses": active_courses_count,
+            "total_trainees": total_trainees,
+            "completion_rate": completion_rate,
+            "chart_data": chart_data,
+            "recent_activities": activities,
+        }, status=status.HTTP_200_OK)
