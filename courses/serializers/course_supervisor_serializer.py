@@ -5,20 +5,13 @@ from authen.models import CustomUser
 from courses.models.course_supervisor_model import CourseSupervisor
 from courses.models.course_model import Course
 from subjects.models.subject import Subject
+from users.models.comment import Comment
 
-
-# -----------------------------------------
-# BASIC USER SERIALIZER
-# -----------------------------------------
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["id", "full_name"]
 
-
-# -----------------------------------------
-# COURSE SUPERVISOR SERIALIZER
-# -----------------------------------------
 class CourseSupervisorSerializer(serializers.ModelSerializer):
     supervisor = UserBasicSerializer(read_only=True)
 
@@ -27,9 +20,6 @@ class CourseSupervisorSerializer(serializers.ModelSerializer):
         fields = ["id", "course", "supervisor", "created_at"]
 
 
-# -----------------------------------------
-# ADD SUBJECT + TASK SERIALIZER (YOUR PART)
-# -----------------------------------------
 class AddSubjectTaskSerializer(serializers.Serializer):
     subject_id = serializers.IntegerField(required=False, allow_null=True)
     name = serializers.CharField(required=False, max_length=100)
@@ -46,7 +36,6 @@ class AddSubjectTaskSerializer(serializers.Serializer):
         subject_id = data.get("subject_id")
 
         if not subject_id:
-            # Creating new subject
             if not data.get("name"):
                 raise serializers.ValidationError("Name is required for new subject.")
             if not data.get("max_score"):
@@ -54,7 +43,6 @@ class AddSubjectTaskSerializer(serializers.Serializer):
             if not data.get("estimated_time_days"):
                 raise serializers.ValidationError("Estimated time is required.")
         else:
-            # Using existing subject
             if not Subject.objects.filter(id=subject_id).exists():
                 raise serializers.ValidationError("Subject ID does not exist.")
 
@@ -76,13 +64,16 @@ class AddTraineeSerializer(serializers.Serializer):
         return value
 
 
-# Serializer để thêm Supervisor (nhận list ID)
 class AddSupervisorSerializer(serializers.Serializer):
     supervisor_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=CustomUser.objects.filter(role="SUPERVISOR")
     )
 
-
-# Serializer để xóa (nhận ID chung)
 class DeleteIDSerializer(serializers.Serializer):
     id = serializers.IntegerField()
+
+class CommentHistorySerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    class Meta:
+        model = Comment
+        fields = ['id', 'user', 'content', 'created_at']

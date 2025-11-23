@@ -55,4 +55,37 @@ urlpatterns = [
         CourseMembersView.as_view(),
         name="trainee-course-detail"
     ),
+    path(
+        "supervisor/courses/<int:course_id>/students/",
+        SupervisorCourseStudentsView.as_view(),
+        name="supervisor-course-students"
+    ),
+    path(
+        "supervisor/subjects/<int:subject_id>/student/<int:student_id>/",
+        SupervisorUserSubjectDetailView.as_view(),
+        name="supervisor-user-subject-detail"
+    ),
+    path(
+        "supervisor/subjects/<int:subject_id>/tasks/",
+        SupervisorSubjectTaskCreateView.as_view(),
+        name="supervisor-subject-task-create"
+    ),
+
+    path(
+        "supervisor/user-subjects/<int:pk>/assessment/",
+        SupervisorUserSubjectAssessmentView.as_view(),
+        name="supervisor-user-subject-assessment"
+    ),
+
+    path(
+        "supervisor/tasks/<int:pk>/",
+        SupervisorTaskToggleView.as_view(),
+        name="supervisor-task-toggle"
+    ),
+
+    path(
+        "supervisor/user-subjects/<int:pk>/complete/",
+        SupervisorUserSubjectCompleteView.as_view(),
+        name="supervisor-user-subject-complete"
+    ),
 ]
