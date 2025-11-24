@@ -1,3 +1,5 @@
+from rest_framework.routers import DefaultRouter, SimpleRouter # Import SimpleRouter
+from users.views import CommentViewSet, UserViewSet # Thêm UserViewSet vào đây
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
@@ -14,6 +16,10 @@ router.register(r'admin/daily_reports', AdminDailyReportViewSet, basename='admin
 
 router_resources = DefaultRouter()
 router_resources.register(r'comments', CommentViewSet, basename='comments')
+# --- Router RIÊNG cho Admin User ---
+# Chỉ chứa UserViewSet
+admin_user_router = SimpleRouter()
+admin_user_router.register(r'', UserViewSet, basename='admin-users')
 
 urlpatterns = [
     path('django-admin/', admin.site.urls),
@@ -22,10 +28,16 @@ urlpatterns = [
 
     path('api/', include([
         path('', include(router.urls)),
-        path('users/', include('users.urls')),
         
+        # 1. PATH TRAINEE (Dùng users/urls.py đã được lược bỏ UserViewSet)
+        path('users/', include('users.urls')), 
+        
+        # 2. PATH ADMIN (Chỉ include UserViewSet)
         path('admin/', include([
+            # Thay thế include('users.urls') bằng admin_user_router
+            path('users/', include(admin_user_router.urls)), 
         ])),
+        
         path('', include('courses.urls')),
         path('', include('subjects.urls')),
         path('daily_reports/', include('daily_reports.urls')),
