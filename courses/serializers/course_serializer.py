@@ -1,6 +1,6 @@
-
 from rest_framework import serializers
 from authen.models import CustomUser
+from django.db import transaction
 from courses.models.course_model import Course
 from users.models.user_course import UserCourse
 from courses.models.course_subject import CourseSubject
@@ -99,20 +99,25 @@ class CourseSerializer(serializers.ModelSerializer):
 
 
 class CourseCreateSerializer(serializers.ModelSerializer):
+    # Khai báo tường minh để nhận list ID
     subjects = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
         required=False,
+        allow_empty=True,
     )
     supervisors = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
         required=False,
+        allow_empty=True,
     )
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Course
         fields = [
+            "id",  # Thêm ID để frontend nhận được sau khi tạo
             "name",
             "link_to_course",
             "image",
@@ -124,22 +129,68 @@ class CourseCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_subjects(self, value):
-        from subjects.models.subject import Subject
-
-        for subject_id in value:
-            if not Subject.objects.filter(id=subject_id).exists():
-                raise serializers.ValidationError(
-                    f"Subject with id {subject_id} does not exist."
-                )
-        return value
+        # Lọc bỏ ID rỗng hoặc không hợp lệ nếu cần
+        valid_ids = []
+        for sid in value:
+            if Subject.objects.filter(id=sid).exists():
+                valid_ids.append(sid)
+        return valid_ids
 
     def validate_supervisors(self, value):
-        for sid in value:
-            if not CustomUser.objects.filter(id=sid, role="supervisor").exists():
-                raise serializers.ValidationError(
-                    f"User {sid} is not a valid supervisor."
+        valid_ids = []
+        for uid in value:
+            if CustomUser.objects.filter(id=uid, role="SUPERVISOR").exists():
+                valid_ids.append(uid)
+        return valid_ids
+
+    @transaction.atomic
+    def create(self, validated_data):
+        print("--- [DEBUG] SERIALIZER CREATE ---")
+
+        # 1. TÁCH DỮ LIỆU M2M (QUAN TRỌNG)
+        # pop() sẽ lấy dữ liệu ra và xóa khỏi validated_data
+        # giúp tránh lỗi "unexpected keyword argument" khi tạo Course
+        subjects_ids = validated_data.pop("subjects", [])
+        supervisors_ids = validated_data.pop("supervisors", [])
+
+        # 2. TẠO COURSE
+        # creator được truyền vào từ perform_create của View thông qua save()
+        course = Course.objects.create(**validated_data)
+
+        # 3. TẠO SUPERVISORS (M2M)
+        if supervisors_ids:
+            links = [
+                CourseSupervisor(course=course, supervisor_id=uid)
+                for uid in supervisors_ids
+            ]
+            CourseSupervisor.objects.bulk_create(links)
+
+        # 4. TẠO SUBJECTS & CLONE TASKS
+        if subjects_ids:
+            for idx, sub_id in enumerate(subjects_ids):
+                # Tạo liên kết Course - Subject
+                cs = CourseSubject.objects.create(
+                    course=course, subject_id=sub_id, position=idx
                 )
-        return value
+
+                # Lấy Tasks mẫu từ Subject gốc
+                original_tasks = Task.objects.filter(
+                    taskable_type=Task.TaskType.SUBJECT, taskable_id=sub_id
+                )
+
+                # Clone sang CourseSubject mới
+                new_tasks = [
+                    Task(
+                        name=t.name,
+                        taskable_type=Task.TaskType.COURSE_SUBJECT,
+                        taskable_id=cs.id,
+                        position=t.position,
+                    )
+                    for t in original_tasks
+                ]
+                Task.objects.bulk_create(new_tasks)
+
+        return course
 
 
 class UserCourseMemberSerializer(serializers.ModelSerializer):

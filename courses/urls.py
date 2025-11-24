@@ -18,6 +18,11 @@ urlpatterns = [
         name="supervisor-course-create",
     ),
     path(
+        "admin/courses/create/",
+        SupervisorCourseCreateView.as_view(),
+        name="admin-course-create",
+    ),
+    path(
         "supervisor/stats/",
         SupervisorDashboardStatsView.as_view(),
         name="supervisor-stats",
@@ -187,5 +192,10 @@ urlpatterns = [
         "admin/courses/<int:pk>/add-task/",
         CourseManagementViewSet.as_view({"post": "add_task"}),
         name="admin-course-add-task",
+    ),
+    path(
+        "admin/tasks/<int:pk>/detail/",
+        SupervisorTaskDetailView.as_view(),
+        name="admin-task-detail",
     ),
 ]

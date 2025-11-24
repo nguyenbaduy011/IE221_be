@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import QueryDict
 from authen.permissions import IsAdminOrSupervisor
 from rest_framework.decorators import action
 from rest_framework import viewsets
@@ -16,6 +17,7 @@ from users.models.user_subject import UserSubject
 from users.models.user_task import UserTask
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.utils import timezone
 from courses.serializers.course_supervisor_serializer import *
 from courses.selectors import get_all_courses, get_course_by_id
 from courses.serializers.course_serializer import (
@@ -76,9 +78,43 @@ class SupervisorCourseDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class SupervisorCourseCreateView(APIView):
-    serializer_class = CourseCreateSerializer
+class SupervisorCourseCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+    serializer_class = CourseCreateSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            # 1. Chuẩn hóa dữ liệu đầu vào từ FormData
+            data = (
+                request.data.dict()
+                if hasattr(request.data, "dict")
+                else request.data.copy()
+            )
+
+            # Nếu là FormData, dùng getlist để lấy trọn vẹn mảng subjects/supervisors
+            if hasattr(request.data, "getlist"):
+                if "subjects" in request.data:
+                    data["subjects"] = request.data.getlist("subjects")
+                if "supervisors" in request.data:
+                    data["supervisors"] = request.data.getlist("supervisors")
+
+        except Exception as e:
+            return Response(
+                {"detail": "Invalid data format"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Đưa vào Serializer
+        serializer = self.get_serializer(data=data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Lưu và trả về
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)
@@ -954,9 +990,6 @@ class SupervisorTaskToggleView(APIView):
         return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
-from django.utils import timezone
-
-
 class SupervisorUserSubjectCompleteView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
@@ -986,3 +1019,31 @@ class CourseSubjectUpdateView(generics.UpdateAPIView):
     queryset = CourseSubject.objects.all()
     serializer_class = CourseSubjectSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
+
+# --- THÊM CLASS MỚI NÀY ---
+class SupervisorTaskDetailView(APIView):
+    """
+    API: /api/supervisor/tasks/<pk>/detail/
+    Dùng để Sửa (PATCH) hoặc Xóa (DELETE) một Task cụ thể
+    """
+
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
+    def patch(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        new_name = request.data.get("name")
+
+        if not new_name:
+            return Response(
+                {"detail": "Task name required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        task.name = new_name
+        task.save()
+        return Response({"message": "Task updated"}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        task = get_object_or_404(Task, pk=pk)
+        task.delete()
+        return Response({"message": "Task deleted"}, status=status.HTTP_200_OK)
