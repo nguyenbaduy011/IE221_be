@@ -1,64 +1,70 @@
-Django Project README
+# Django Project README
 
-## Overview
+## Tổng quan
 
-This is a Django web application project. It provides \[brief description of your project's purpose, e.g., a blog platform, e-commerce site, etc.\].
+Đây là một dự án web sử dụng Django. Dự án cung cấp \[mô tả ngắn gọn về
+mục đích của dự án, ví dụ: nền tảng blog, trang thương mại điện tử, hệ
+thống quản lý,...\].
 
-## Prerequisites
+## Yêu cầu hệ thống
 
-- Python 3.8 or higher
-- pip (Python package installer)
-- PostgreSQL
+-   Python 3.8 trở lên
+-   pip (trình quản lý gói Python)
+-   PostgreSQL
 
-## Installation
+## Cài đặt
 
-1. **Clone the repository**:
+1.  **Clone repository**:
 
-   ```bash
-   git clone https://github.com/nguyenbaduy011/IE229_be
-   cd IE229_be
-   ```
+    ``` bash
+    git clone https://github.com/nguyenbaduy011/IE229_be
+    cd IE229_be
+    ```
 
-2. **Set up environment variables**:
+2.  **Thiết lập biến môi trường**:
 
-   - Copy the `.env.example` file to create a `.env` file:
+    -   Sao chép file `.env.example` và tạo file `.env`:
 
-     ```bash
-     cp .env.example .env
-     ```
+        ``` bash
+        cp .env.example .env
+        ```
 
-   - Edit the `.env` file to include your specific configuration (e.g., database credentials, secret key, etc.). Example fields in `.env.example`:
+    -   Chỉnh sửa file `.env` để điền các cấu hình cần thiết (ví dụ:
+        thông tin database, secret key, v.v.).\
+        Ví dụ các trường trong `.env.example`:
 
-     ```
-     SECRET_KEY=your-secret-key
-     DATABASE_URL=your-database-url
-     DEBUG=True
-     ```
+            SECRET_KEY=your-secret-key
+            DATABASE_URL=your-database-url
+            DEBUG=True
 
-3. **Install dependencies**: Run the following command to install all required packages:
+3.  **Cài đặt dependencies**:\
+    Chạy lệnh sau để cài tất cả các package cần thiết:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+    ``` bash
+    pip install -r requirements.txt
+    ```
 
-4. **Configure the database**:
+4.  **Cấu hình cơ sở dữ liệu**:
 
-   - Ensure the database settings in `.env` are correct.
-   - Run migrations to set up the database:
+    -   Đảm bảo thông tin cấu hình trong file `.env` là chính xác.
 
-     ```bash
-     python manage.py migrate
-     ```
-   - Seed the database with sample data (Users, Courses, Subjects, etc.):
+    -   Chạy migrations để tạo bảng:
 
-     ```bash
-     python manage.py seed_data
-     ```
+        ``` bash
+        python manage.py migrate
+        ```
 
-5. **Run the development server**: Start the Django development server:
+    -   (Tuỳ chọn) Khởi tạo dữ liệu mẫu: Users, Courses, Subjects, ...
 
-   ```bash
-   python manage.py runserver
-   ```
+        ``` bash
+        python manage.py seed_data
+        ```
 
-   The application will be available at `http://127.0.0.1:8000/`.
+5.  **Chạy server phát triển**:
+
+    ``` bash
+    python manage.py runserver
+    ```
+
+    Ứng dụng sẽ chạy tại:\
+    👉 `http://127.0.0.1:8000/`
