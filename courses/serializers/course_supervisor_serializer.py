@@ -5,60 +5,21 @@ from authen.models import CustomUser
 from courses.models.course_supervisor_model import CourseSupervisor
 from courses.models.course_model import Course
 from subjects.models.subject import Subject
+from users.models.comment import Comment
 
 
-# -----------------------------------------
-# BASIC USER SERIALIZER
-# -----------------------------------------
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["id", "full_name"]
+        fields = ["id", "full_name", "email", "role"]
 
 
-# -----------------------------------------
-# COURSE SUPERVISOR SERIALIZER
-# -----------------------------------------
 class CourseSupervisorSerializer(serializers.ModelSerializer):
     supervisor = UserBasicSerializer(read_only=True)
 
     class Meta:
         model = CourseSupervisor
         fields = ["id", "course", "supervisor", "created_at"]
-
-
-# -----------------------------------------
-# ADD SUBJECT + TASK SERIALIZER (YOUR PART)
-# -----------------------------------------
-class AddSubjectTaskSerializer(serializers.Serializer):
-    subject_id = serializers.IntegerField(required=False, allow_null=True)
-    name = serializers.CharField(required=False, max_length=100)
-    max_score = serializers.IntegerField(required=False)
-    estimated_time_days = serializers.IntegerField(required=False)
-    image = serializers.ImageField(required=False)
-    tasks = serializers.ListField(
-        child=serializers.CharField(max_length=255),
-        required=False,
-        default=list,
-    )
-
-    def validate(self, data):
-        subject_id = data.get("subject_id")
-
-        if not subject_id:
-            # Creating new subject
-            if not data.get("name"):
-                raise serializers.ValidationError("Name is required for new subject.")
-            if not data.get("max_score"):
-                raise serializers.ValidationError("Max score is required.")
-            if not data.get("estimated_time_days"):
-                raise serializers.ValidationError("Estimated time is required.")
-        else:
-            # Using existing subject
-            if not Subject.objects.filter(id=subject_id).exists():
-                raise serializers.ValidationError("Subject ID does not exist.")
-
-        return data
 
 
 class AddTraineeSerializer(serializers.Serializer):
@@ -76,13 +37,54 @@ class AddTraineeSerializer(serializers.Serializer):
         return value
 
 
-# Serializer để thêm Supervisor (nhận list ID)
 class AddSupervisorSerializer(serializers.Serializer):
     supervisor_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=CustomUser.objects.filter(role="SUPERVISOR")
     )
 
 
-# Serializer để xóa (nhận ID chung)
 class DeleteIDSerializer(serializers.Serializer):
     id = serializers.IntegerField()
+
+
+class CommentHistorySerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "user", "content", "created_at"]
+
+
+class AddSubjectTaskSerializer(serializers.Serializer):
+    # subject_id: Dùng khi chọn môn có sẵn
+    subject_id = serializers.IntegerField(required=False, allow_null=True)
+
+    # Các trường này dùng khi tạo môn mới
+    name = serializers.CharField(required=False, max_length=100, allow_blank=True)
+    max_score = serializers.IntegerField(required=False, default=10)
+    estimated_time_days = serializers.IntegerField(required=False, default=1)
+
+    # Danh sách task (nếu tạo mới)
+    tasks = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        required=False,
+        default=list,
+    )
+
+    def validate(self, data):
+        subject_id = data.get("subject_id")
+        name = data.get("name")
+
+        # Nếu không có ID thì bắt buộc phải có Name (để tạo mới)
+        if not subject_id and not name:
+            raise serializers.ValidationError(
+                "Either 'subject_id' (existing) or 'name' (new) is required."
+            )
+
+        # Nếu có ID, kiểm tra tồn tại
+        if subject_id and not Subject.objects.filter(id=subject_id).exists():
+            raise serializers.ValidationError(
+                f"Subject with id {subject_id} does not exist."
+            )
+
+        return data

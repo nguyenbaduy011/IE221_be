@@ -12,6 +12,8 @@ from courses.serializers.course_serializer import UserCourseMemberSerializer
 from courses.serializers.course_trainee_serializers import TraineeCourseListSerializer
 from courses.selectors import get_all_courses, get_course_by_id
 
+from courses.serializers.course_detail_serializer import TraineeCourseFullDetailSerializer
+
 class TraineeMyCoursesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -38,66 +40,28 @@ class TraineeMyCoursesView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TraineeCourseDetailView(APIView):
-    permissions_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request, course_id):
-        user_id = request.user
-        # 1. Lấy Course
+        user = request.user
+        
         try:
             course = Course.objects.get(id=course_id)
         except Course.DoesNotExist:
-            return Response({"detail": "Course not found"}, status=404)
+            return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Lấy UserCourse để xác định user có tham gia course không
-        try:
-            user_course = UserCourse.objects.get(user_id=user_id, course_id=course_id)
-        except UserCourse.DoesNotExist:
-            return Response({"detail": "User is not enrolled in this course"}, status=404)
+        # Kiểm tra xem user có tham gia khóa học không
+        is_enrolled = UserCourse.objects.filter(user=user, course=course).exists()
+        if not is_enrolled:
+            return Response({"detail": "You are not enrolled in this course"}, status=status.HTTP_403_FORBIDDEN)
 
-        # 3. Lấy toàn bộ CourseSubject trong khóa học
-        course_subjects = CourseSubject.objects.filter(course_id=course_id).order_by("position")
-
-        result_subjects = []
-
-        for cs in course_subjects:
-            # 4. Tìm UserSubject tương ứng
-            try:
-                user_subject = UserSubject.objects.get(
-                    user_id=user_id,
-                    course_subject_id=cs.id,
-                    user_course_id=user_course.id
-                )
-            except UserSubject.DoesNotExist:
-                user_subject = None
-
-            # 5. Build dữ liệu trả về
-            result_subjects.append({
-                "course_subject_id": cs.id,
-                "position": cs.position,
-                "start_date": cs.start_date,
-                "finish_date": cs.finish_date,
-
-                "subject": {
-                    "id": cs.subject.id,
-                    "name": cs.subject.name,
-                    "max_score": cs.subject.max_score,
-                    "estimated_time_days": cs.subject.estimated_time_days,
-                    "image": request.build_absolute_uri(cs.subject.image.url) if cs.subject.image else None,
-                },
-
-                "progress": {
-                    "status": user_subject.get_status_display() if user_subject else None,
-                    "score": user_subject.score if user_subject else None,
-                    "started_at": user_subject.started_at if user_subject else None,
-                    "completed_at": user_subject.completed_at if user_subject else None,
-                }
-            })
-
-        return Response({
-            "course": CourseSerializer(course).data,
-            "user_course_id": user_course.id,
-            "subjects": result_subjects
-        }, status=status.HTTP_200_OK)
+        # Serialize dữ liệu
+        serializer = TraineeCourseFullDetailSerializer(
+            course, 
+            context={'request': request}
+        )
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class CourseMembersView(APIView):
     permissions_classes = [permissions.IsAuthenticated]
