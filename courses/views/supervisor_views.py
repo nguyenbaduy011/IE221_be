@@ -472,8 +472,8 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                     new_tasks = [
                         Task(
                             name=name,
-                            taskable_type=Task.TaskType.COURSE_SUBJECT,
-                            taskable_id=course_subject.id,
+                            taskable_type=Task.TaskType.SUBJECT,
+                            taskable_id=subject.id,
                         )
                         for name in task_names
                     ]
@@ -624,40 +624,60 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="add-task")
     def add_task(self, request, pk=None):
         course = self.get_object()
-        cs_id = request.data.get("course_subject_id")
+
+        # Ép kiểu int để tránh lỗi
+        try:
+            cs_id = int(request.data.get("course_subject_id"))
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid course_subject_id"}, status=400)
+
         name = request.data.get("name")
 
         if not cs_id or not name:
             return Response({"detail": "Missing info"}, status=400)
 
         try:
+            # 1. Lấy CourseSubject để xác định Subject gốc
             course_subject = CourseSubject.objects.get(id=cs_id, course=course)
 
+            # Lấy Subject gốc ra
+            target_subject = course_subject.subject
+
             with transaction.atomic():
-                # 1. Tạo Task
+                # 2. Tạo Task gắn vào SUBJECT GỐC (Thay đổi theo yêu cầu)
                 task = Task.objects.create(
                     name=name,
-                    taskable_type=Task.TaskType.COURSE_SUBJECT,
-                    taskable_id=course_subject.id,
+                    taskable_type=Task.TaskType.SUBJECT,  # <--- SỬA: Type là SUBJECT
+                    taskable_id=target_subject.id,  # <--- SỬA: ID của Subject gốc
+                    position=0,
                 )
 
-                # 2. Đồng bộ UserTask cho học viên
+                # 3. Đồng bộ UserTask cho các học viên đang học môn này
+                # (Vẫn phải tìm qua CourseSubject để biết ai đang học khóa này)
                 user_subjects = UserSubject.objects.filter(
                     course_subject=course_subject
                 )
-                user_tasks = [
-                    UserTask(
-                        user=us.user,
-                        task=task,
-                        user_subject=us,
-                        status=UserTask.Status.NOT_DONE,
-                    )
-                    for us in user_subjects
-                ]
-                UserTask.objects.bulk_create(user_tasks)
 
-            return Response({"message": "Task added"}, status=201)
+                if user_subjects.exists():
+                    user_tasks = [
+                        UserTask(
+                            user=us.user,
+                            task=task,
+                            user_subject=us,
+                            status=UserTask.Status.NOT_DONE,
+                        )
+                        for us in user_subjects
+                    ]
+                    UserTask.objects.bulk_create(user_tasks)
+
+            return Response(
+                {"message": "Task added to Subject", "id": task.id}, status=201
+            )
+
+        except CourseSubject.DoesNotExist:
+            return Response({"detail": "Subject not found in this course"}, status=404)
         except Exception as e:
+            print(f"Add Task Error: {str(e)}")
             return Response({"detail": str(e)}, status=500)
 
 

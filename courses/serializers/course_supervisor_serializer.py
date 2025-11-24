@@ -11,7 +11,7 @@ from users.models.comment import Comment
 class UserBasicSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["id", "full_name"]
+        fields = ["id", "full_name", "email", "role"]
 
 
 class CourseSupervisorSerializer(serializers.ModelSerializer):

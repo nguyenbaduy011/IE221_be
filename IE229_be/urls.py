@@ -7,30 +7,37 @@ from daily_reports.views.supervisor_views import SupervisorDailyReportViewSet
 from daily_reports.views.admin_views import AdminDailyReportViewSet
 
 router = DefaultRouter()
-router.register(r'trainee/daily_reports', TraineeDailyReportViewSet, basename='trainee-daily-report')
-router.register(r'supervisor/daily_reports', SupervisorDailyReportViewSet, basename='supervisor-daily-report')
-router.register(r'admin/daily_reports', AdminDailyReportViewSet, basename='admin-daily-report')
+router.register(
+    r"trainee/daily_reports", TraineeDailyReportViewSet, basename="trainee-daily-report"
+)
+router.register(
+    r"supervisor/daily_reports",
+    SupervisorDailyReportViewSet,
+    basename="supervisor-daily-report",
+)
+router.register(
+    r"admin/daily_reports", AdminDailyReportViewSet, basename="admin-daily-report"
+)
 
 
 router_resources = DefaultRouter()
-router_resources.register(r'comments', CommentViewSet, basename='comments')
+router_resources.register(r"comments", CommentViewSet, basename="comments")
 
 urlpatterns = [
-    path('django-admin/', admin.site.urls),
-
-    path('auth/', include('authen.urls')),
-
-    path('api/', include([
-        path('', include(router.urls)),
-        path('users/', include('users.urls')),
-        
-        path('admin/', include([
-        ])),
-        path('', include('courses.urls')),
-        path('', include('subjects.urls')),
-        path('daily_reports/', include('daily_reports.urls')),
-
-        path('resources/', include(router_resources.urls)),
-
-    ])),
+    path("django-admin/", admin.site.urls),
+    path("auth/", include("authen.urls")),
+    path(
+        "api/",
+        include(
+            [
+                path("", include(router.urls)),
+                path("users/", include("users.urls")),
+                path("admin/", include([path("users/", include("users.urls"))])),
+                path("", include("courses.urls")),
+                path("", include("subjects.urls")),
+                path("daily_reports/", include("daily_reports.urls")),
+                path("resources/", include(router_resources.urls)),
+            ]
+        ),
+    ),
 ]
