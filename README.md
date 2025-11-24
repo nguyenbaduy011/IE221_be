@@ -2,9 +2,7 @@
 
 ## Tổng quan
 
-Đây là một dự án web sử dụng Django. Dự án cung cấp \[mô tả ngắn gọn về
-mục đích của dự án, ví dụ: nền tảng blog, trang thương mại điện tử, hệ
-thống quản lý,...\].
+Đây là một dự án web sử dụng Django. Dự án cung cấp hệ thống LMS online cho nội bộ doanh nghiệp.
 
 ## Yêu cầu hệ thống
 
