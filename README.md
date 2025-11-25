@@ -1,4 +1,4 @@
-# Django Project README
+# 🏫 LMS -- Hệ thống Quản lý Đào tạo Nội bộ Doanh nghiệp (Backend)
 
 ## Tổng quan
 
