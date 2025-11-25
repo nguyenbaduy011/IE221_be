@@ -44,11 +44,7 @@ class RegistrationViewSet(viewsets.ViewSet):
             "message": "Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt."
         }, status=status.HTTP_201_CREATED)
 
-class UserProfileView(generics.RetrieveAPIView):
-    """
-    GET /auth/me/
-    Renderer sẽ tự động bọc thành: { status: success, data: {...}, message: "Thành công" }
-    """
+class UserProfileView(generics.RetrieveUpdateAPIView): 
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
 
