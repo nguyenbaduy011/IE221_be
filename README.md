@@ -2,7 +2,10 @@
 
 ## Tổng quan
 
-Đây là một dự án web sử dụng Django. Dự án cung cấp hệ thống LMS online cho nội bộ doanh nghiệp.
+Đây là dự án với Backend được xây dựng bằng **Django**, phục vụ cho hệ
+thống LMS nội bộ doanh nghiệp. Ứng dụng cung cấp giao diện người dùng
+cho các chức năng như quản lý khóa học, người dùng, lớp học, bài kiểm
+tra, báo cáo học tập và các hoạt động đào tạo nội bộ.
 
 ## Yêu cầu hệ thống
 
