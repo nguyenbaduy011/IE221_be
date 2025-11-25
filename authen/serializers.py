@@ -29,10 +29,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    """
-    Serializer để hiển thị thông tin chi tiết của user (an toàn).
-    """
-
     class Meta:
         model = CustomUser
         fields = (
@@ -51,13 +47,6 @@ class ResendActivationEmailSerializer(serializers.Serializer):
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    Serializer tùy chỉnh:
-    1. Kiểm tra user chưa active -> Trả lỗi ACCOUNT_NOT_ACTIVE
-    2. Thêm 'remember_me' để chỉnh thời hạn token.
-    3. Thêm thông tin user vào response.
-    """
-
     remember_me = serializers.BooleanField(write_only=True, required=False)
 
     def validate(self, attrs):
@@ -95,9 +84,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class LogoutSerializer(serializers.Serializer):
-    """
-    Serializer để nhận refresh token và đưa vào blacklist.
-    """
+
 
     refresh = serializers.CharField()
 
@@ -115,23 +102,20 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    """
-    Serializer để đổi mật khẩu (cho user đã đăng nhập).
-    """
-
     old_password = serializers.CharField(required=True, write_only=True)
     new_password = serializers.CharField(required=True, write_only=True)
+    
+    new_password_confirm = serializers.CharField(required=True, write_only=True)
 
     def validate_old_password(self, value):
         user = self.context["request"].user
-
         if not user.check_password(value):
             raise serializers.ValidationError("Mật khẩu cũ không chính xác.")
         return value
 
     def validate(self, attrs):
         if attrs["new_password"] != attrs["new_password_confirm"]:
-            raise serializers.ValidationError({"new_password": "Mật khẩu không khớp."})
+            raise serializers.ValidationError({"new_password": "Mật khẩu xác nhận không khớp."})
         return attrs
 
     def save(self, **kwargs):
@@ -142,13 +126,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
-    """
-    Serializer cho Admin tạo User mới:
-    - Không cần confirm password (giả định Admin set cứng hoặc auto).
-    - Set is_active = True mặc định (hoặc tuỳ chọn).
-    - Cho phép chọn Role ngay lập tức.
-    """
-
     class Meta:
         model = CustomUser
         fields = ("id", "email", "full_name", "password", "role", "is_active")
