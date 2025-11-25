@@ -1,5 +1,5 @@
-from rest_framework.routers import DefaultRouter, SimpleRouter # Import SimpleRouter
-from users.views import CommentViewSet, UserViewSet # Thêm UserViewSet vào đây
+from rest_framework.routers import DefaultRouter, SimpleRouter
+from users.views import CommentViewSet, UserViewSet
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter

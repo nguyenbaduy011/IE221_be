@@ -23,7 +23,7 @@ supervisor_router = DefaultRouter()
 supervisor_router.register(
     r"categories", SupervisorCategoryViewSet, basename="supervisor-category"
 )
-# URL sẽ là: /supervisor/categories/
+
 
 urlpatterns = [
     # --- Include Shared Router URLs ---

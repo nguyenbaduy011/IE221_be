@@ -13,14 +13,14 @@ from subjects.serializers.subject_serializers import SubjectSerializer
 from subjects.serializers.task_serializers import TaskSerializer
 from subjects.serializers.category_serializers import (
     CategorySerializer,
-)  # Import CategorySerializer
+)
 
 from subjects.selectors import (
     get_subject_by_id,
     search_subjects,
     search_categories,
     get_category_by_id,
-)  # Import selectors cho category
+)
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
@@ -39,7 +39,6 @@ class SupervisorSubjectListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
     def get(self, request):
-        # Lấy params search giống file Ruby
         query = request.query_params.get("query")
         exclude_ids_raw = request.query_params.get("exclude_ids")
 
@@ -136,7 +135,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = TaskSerializer
-    # permission_classes = [IsTaskEditor]
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
     def get_queryset(self):
@@ -190,7 +188,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 course_subject__subject_id=subject_id
             ).select_related(
                 "user"
-            )  # Optimize query
+            )
 
             user_tasks_to_create = []
             processed_user_ids = set()  # Dùng set để theo dõi các user đã xử lý
@@ -304,4 +302,4 @@ class SubjectListView(generics.ListAPIView):
 
     # Cấu hình tìm kiếm
     filter_backends = [filters.SearchFilter]
-    search_fields = ["name"]  # Cho phép tìm theo tên
+    search_fields = ["name"]

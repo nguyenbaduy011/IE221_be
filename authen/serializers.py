@@ -1,4 +1,3 @@
-# authen/serializers.py
 from rest_framework import serializers, exceptions
 from .models import CustomUser
 
@@ -16,7 +15,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        # Băm (hash) mật khẩu trước khi lưu
         user = CustomUser.objects.create_user(
             email=validated_data["email"],
             full_name=validated_data["full_name"],
@@ -67,29 +65,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         password = attrs.get("password")
 
         if email and password:
-            # Tìm user trong DB
             user = CustomUser.objects.filter(email__iexact=email).first()
 
             if user:
-                # Kiểm tra mật khẩu thủ công
                 if user.check_password(password):
-                    # Nếu mật khẩu đúng, kiểm tra tiếp is_active
                     if not user.is_active:
-                        # NẾU CHƯA ACTIVE: Ném lỗi với code riêng biệt
                         raise exceptions.AuthenticationFailed(
                             detail="ACCOUNT_NOT_ACTIVE", code="ACCOUNT_NOT_ACTIVE"
                         )
-                # Nếu mật khẩu sai: Để im, hàm super().validate() phía dưới sẽ lo việc báo lỗi
-        # ----------------------
 
-        # Chạy hàm validate gốc của SimpleJWT
-        # Hàm này sẽ kiểm tra user/pass lần nữa và tạo token nếu mọi thứ OK (bao gồm is_active=True)
         data = super().validate(attrs)
 
-        # Lấy đối tượng refresh token
         refresh = self.get_token(self.user)
 
-        # Thêm thông tin user vào Access Token response
         data["user"] = {
             "id": self.user.id,
             "email": self.user.email,
@@ -97,7 +85,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             "role": self.user.role,
         }
 
-        # Xử lý Remember Me
         if attrs.get("remember_me", False):
             refresh.set_exp(lifetime=timedelta(days=30))
 
@@ -134,10 +121,8 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     old_password = serializers.CharField(required=True, write_only=True)
     new_password = serializers.CharField(required=True, write_only=True)
-    # Bạn có thể thêm 'new_password_confirm' nếu muốn
 
     def validate_old_password(self, value):
-        # Lấy user từ context (được truyền vào từ View)
         user = self.context["request"].user
 
         if not user.check_password(value):
@@ -150,7 +135,6 @@ class ChangePasswordSerializer(serializers.Serializer):
         return attrs
 
     def save(self, **kwargs):
-        # Lưu mật khẩu mới
         user = self.context["request"].user
         user.set_password(self.validated_data["new_password"])
         user.save()
@@ -171,13 +155,12 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        # Mặc định Admin tạo thì cho active luôn, trừ khi Admin cố tình set False
         is_active = validated_data.pop("is_active", True)
 
         user = CustomUser.objects.create_user(
             email=validated_data["email"],
             full_name=validated_data.get("full_name", ""),
-            role=validated_data["role"],  # Admin được quyền gán role
+            role=validated_data["role"],
             password=validated_data["password"],
         )
         user.is_active = is_active

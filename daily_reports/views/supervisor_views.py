@@ -15,15 +15,13 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        token_payload = self.request.auth   # JWT payload
+        token_payload = self.request.auth
 
         # Lấy user_id từ token
         token_user_id = token_payload.get("user_id")
         if not token_user_id:
             raise PermissionDenied("Invalid token: missing user_id")
 
-        # 🚨 Kiểm tra role supervisor
-        # giả sử User model có `role`
         if not hasattr(user, "role") or user.role != "SUPERVISOR":
             raise PermissionDenied("You are not allowed to access supervisor reports.")
 
@@ -42,8 +40,4 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
         if filter_date:
             queryset = queryset.filter(created_at__date=filter_date)
-
-        # ❌ KHÔNG cho truyền user_id qua query param → xóa luôn
-        # Mọi DailyReport đều đã tự động giới hạn theo course_id supervised.
-
         return queryset

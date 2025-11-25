@@ -20,7 +20,6 @@ class SubjectCategorySerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    # Dùng serializer lồng nhau để vừa đọc vừa ghi được
     subject_categories = SubjectCategorySerializer(source='subjectcategory_set', many=True, read_only=False)
 
     class Meta:
@@ -31,7 +30,7 @@ class CategorySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Tách dữ liệu subject_categories ra khỏi data của Category
         subject_categories_data = validated_data.pop('subjectcategory_set', [])
-        
+
         # 1. Tạo Category
         category = Category.objects.create(**validated_data)
 
@@ -40,9 +39,9 @@ class CategorySerializer(serializers.ModelSerializer):
             SubjectCategory.objects.create(
                 category=category,
                 subject=item['subject'],
-                position=index + 1 # Tự động đánh số thứ tự dựa trên list gửi lên
+                position=index + 1
             )
-        
+
         return category
 
     @transaction.atomic
@@ -54,11 +53,11 @@ class CategorySerializer(serializers.ModelSerializer):
         instance.save()
 
         # 2. Xử lý danh sách môn học (Chiến lược: Xóa hết cũ -> Tạo mới để đảm bảo thứ tự chính xác)
-        # Lưu ý: Nếu cần giữ lại ID của bảng trung gian thì logic sẽ phức tạp hơn, 
+        # Lưu ý: Nếu cần giữ lại ID của bảng trung gian thì logic sẽ phức tạp hơn,
         # nhưng với yêu cầu hiện tại thì cách xóa đi tạo lại là an toàn nhất cho thứ tự.
         if subject_categories_data is not None:
             instance.subjectcategory_set.all().delete()
-            
+
             for index, item in enumerate(subject_categories_data):
                 SubjectCategory.objects.create(
                     category=instance,

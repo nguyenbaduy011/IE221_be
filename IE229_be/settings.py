@@ -81,14 +81,14 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'core.renderers.CustomJSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
-        
+
     ),
 }
 
 SIMPLE_JWT = {
     # Access Token ngắn: 5 phút
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    
+
     # Refresh Token mặc định (khi không tick remember me): 1 ngày
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 
@@ -188,10 +188,10 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000", # Địa chỉ của frontend Next.js
-    "http://127.0.0.1:3000", 
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
-    
+
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [

@@ -11,7 +11,7 @@ class TraineeSubjectListView(APIView):
     API Search/List Subject dành cho Trainee (Tương ứng resources :subjects, only: :index trong Rails)
     """
     serializer_class = SubjectSerializer
-    permission_classes = [permissions.IsAuthenticated] # Có thể mở cho all authenticated users
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         query = request.query_params.get('query')

@@ -12,51 +12,44 @@ class TaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate(self, data):
-        """
-        Validate uniqueness: A task name must be unique within a subject.
-        """
         name = data.get('name')
         subject_id = data.get('subject_id')
 
-        # Handle update case where subject_id might not be in data
         if self.instance:
             if not name:
                 name = self.instance.name
             if not subject_id:
                 if self.instance.taskable_type == Task.TaskType.SUBJECT:
                      subject_id = self.instance.taskable_id
-                # Logic for CourseSubject tasks if needed, though requirement focuses on Subject-Task pairs
 
         if name and subject_id:
-            # Check for duplicates in Subject tasks
             exists = Task.objects.filter(
                 name__iexact=name,
                 taskable_type=Task.TaskType.SUBJECT,
                 taskable_id=subject_id
             ).exclude(id=self.instance.id if self.instance else None).exists()
-            
+
             if exists:
                 raise serializers.ValidationError("Task name already exists for this subject.")
-        
+
         return data
 
     def validate_subject_id(self, value):
         if not Subject.objects.filter(id=value).exists():
             raise serializers.ValidationError("Subject not found.")
         return value
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        
+
         if instance.taskable_type == Task.TaskType.SUBJECT:
             representation['subject_id'] = instance.taskable_id
             representation['type'] = 'Subject Task'
-            # Add subject name for convenience in list view
             try:
                 representation['subject_name'] = Subject.objects.get(id=instance.taskable_id).name
             except Subject.DoesNotExist:
                 representation['subject_name'] = "Unknown"
-            
+
         elif instance.taskable_type == Task.TaskType.COURSE_SUBJECT:
             try:
                 cs = CourseSubject.objects.get(id=instance.taskable_id)
@@ -82,7 +75,7 @@ class TaskSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         if 'subject_id' in validated_data:
             instance.taskable_id = validated_data.pop('subject_id')
-        
+
         instance.name = validated_data.get('name', instance.name)
         instance.save()
         return instance
