@@ -729,7 +729,7 @@ class SupervisorDashboardStatsView(APIView):
         ).count()
         upcoming_count = my_courses.filter(status=Course.Status.NOT_STARTED).count()
         finished_count = my_courses.filter(status=Course.Status.FINISHED).count()
-
+        supervisor_count = CustomUser.objects.filter(role=CustomUser.Role.SUPERVISOR).count()
         total_trainees = (
             UserCourse.objects.filter(course__in=my_courses)
             .values("user")
@@ -788,6 +788,7 @@ class SupervisorDashboardStatsView(APIView):
                 "completion_rate": completion_rate,
                 "chart_data": chart_data,
                 "recent_activities": activities,
+                "total_supervisors": supervisor_count
             },
             status=status.HTTP_200_OK,
         )

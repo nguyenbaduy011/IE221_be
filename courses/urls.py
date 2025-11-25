@@ -27,6 +27,11 @@ urlpatterns = [
         SupervisorDashboardStatsView.as_view(),
         name="supervisor-stats",
     ),
+     path(
+        "admin/stats/",
+        AdminDashboardStatsView.as_view(),
+        name="admin-stats",
+    ),
     path(
         "supervisor/courses/my-courses/",
         SupervisorMyCourseListView.as_view(),
