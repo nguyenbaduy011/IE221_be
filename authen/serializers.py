@@ -55,7 +55,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         if email and password:
             user = CustomUser.objects.filter(email__iexact=email).first()
-
             if user:
                 if user.check_password(password):
                     if not user.is_active:
@@ -65,20 +64,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         data = super().validate(attrs)
 
-        refresh = self.get_token(self.user)
+        
 
-        data["user"] = {
-            "id": self.user.id,
-            "email": self.user.email,
-            "full_name": self.user.full_name,
-            "role": self.user.role,
-        }
+        data["user"] = UserDetailSerializer(self.user).data
 
         if attrs.get("remember_me", False):
+            refresh = self.get_token(self.user)
             refresh.set_exp(lifetime=timedelta(days=30))
-
-        data["refresh"] = str(refresh)
-        data["access"] = str(refresh.access_token)
+            data["refresh"] = str(refresh)
+            data["access"] = str(refresh.access_token)
 
         return data
 
