@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.forms import ValidationError
 from authen.models import CustomUser
 
 class Comment(models.Model):

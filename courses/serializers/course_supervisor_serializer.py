@@ -56,15 +56,12 @@ class CommentHistorySerializer(serializers.ModelSerializer):
 
 
 class AddSubjectTaskSerializer(serializers.Serializer):
-    # subject_id: Dùng khi chọn môn có sẵn
     subject_id = serializers.IntegerField(required=False, allow_null=True)
 
-    # Các trường này dùng khi tạo môn mới
     name = serializers.CharField(required=False, max_length=100, allow_blank=True)
     max_score = serializers.IntegerField(required=False, default=10)
     estimated_time_days = serializers.IntegerField(required=False, default=1)
 
-    # Danh sách task (nếu tạo mới)
     tasks = serializers.ListField(
         child=serializers.CharField(max_length=255),
         required=False,
@@ -75,13 +72,11 @@ class AddSubjectTaskSerializer(serializers.Serializer):
         subject_id = data.get("subject_id")
         name = data.get("name")
 
-        # Nếu không có ID thì bắt buộc phải có Name (để tạo mới)
         if not subject_id and not name:
             raise serializers.ValidationError(
                 "Either 'subject_id' (existing) or 'name' (new) is required."
             )
 
-        # Nếu có ID, kiểm tra tồn tại
         if subject_id and not Subject.objects.filter(id=subject_id).exists():
             raise serializers.ValidationError(
                 f"Subject with id {subject_id} does not exist."

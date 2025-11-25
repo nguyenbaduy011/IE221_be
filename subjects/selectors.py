@@ -25,7 +25,6 @@ def search_subjects(query=None, exclude_ids=None):
     
     return subjects.order_by('name')
 
-# --- CATEGORY SELECTORS ---
 
 def search_categories(query=None):
     """

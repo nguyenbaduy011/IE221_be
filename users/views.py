@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from authen.models import CustomUser
-from authen.permissions import IsAdminRole, IsAdminOrSupervisor, IsCommentOwnerOrAdmin, IsOwner, IsTraineeRole # Import thêm IsAdminOrSupervisor
+from authen.permissions import IsAdminRole, IsAdminOrSupervisor, IsCommentOwnerOrAdmin, IsOwner, IsTraineeRole
 from users.serializers import (
     AdminUserListSerializer,
     AdminUserCreateSerializer,
@@ -241,9 +241,6 @@ class TraineeMySubjectsView(APIView):
     def get(self, request):
         user = request.user
 
-        # Query lấy tất cả UserSubject của user hiện tại
-        # Sử dụng select_related để tối ưu truy vấn (tránh N+1 query)
-        # Đi từ UserSubject -> CourseSubject -> Subject
         my_subjects = UserSubject.objects.filter(user=user).select_related(
             'course_subject',
             'course_subject__subject'

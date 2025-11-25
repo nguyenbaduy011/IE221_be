@@ -5,11 +5,9 @@ from courses.views.admin_views import *
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-# Tạo các đường dẫn: /api/courses/{id}/trainees/, /api/courses/{id}/subjects/
 router.register(r"courses", CourseManagementViewSet, basename="course-management")
 
 urlpatterns = [
-    # 1. URL cho ViewSet (quan trọng để chạy trainees/subjects)
     path("", include(router.urls)),
     path("admin/courses/", AdminCourseListView.as_view(), name="admin-course-list"),
     path(
@@ -123,7 +121,6 @@ urlpatterns = [
         CourseManagementViewSet.as_view({"delete": "remove_supervisor"}),
         name="supervisor-course-remove-supervisor",
     ),
-    # Lưu ý: method add_trainees của bạn dùng tham số course_id, nên URL phải dùng <int:course_id>
     path(
         "supervisor/courses/<int:course_id>/add-trainees/",
         CourseManagementViewSet.as_view({"post": "add_trainees"}),

@@ -20,17 +20,12 @@ class TraineeMyCoursesView(APIView):
     def get(self, request):
         user = request.user
 
-        # 1. Lấy danh sách khóa học user đang tham gia
-        # 'user_courses' là related_name trong model UserCourse
         my_courses = Course.objects.filter(
             user_courses__user=user
         ).distinct().order_by('-created_at')
         
-        # 2. Tối ưu query (Eager loading)
-        # Lấy trước dữ liệu supervisor để tránh lỗi N+1 query
         my_courses = my_courses.prefetch_related('supervisors__supervisor')
 
-        # 3. Serialize (Truyền context request để tính progress)
         serializer = TraineeCourseListSerializer(
             my_courses, 
             many=True, 
@@ -50,12 +45,10 @@ class TraineeCourseDetailView(APIView):
         except Course.DoesNotExist:
             return Response({"detail": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Kiểm tra xem user có tham gia khóa học không
         is_enrolled = UserCourse.objects.filter(user=user, course=course).exists()
         if not is_enrolled:
             return Response({"detail": "You are not enrolled in this course"}, status=status.HTTP_403_FORBIDDEN)
 
-        # Serialize dữ liệu
         serializer = TraineeCourseFullDetailSerializer(
             course, 
             context={'request': request}

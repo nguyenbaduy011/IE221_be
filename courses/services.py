@@ -1,3 +1,8 @@
+from courses.models.course_model import Course
+from courses.models.course_subject import CourseSubject
+from courses.models.course_supervisor_model import CourseSupervisor
+
+
 class CourseCreateService:
     @staticmethod
     def create_course(user, validated_data):
