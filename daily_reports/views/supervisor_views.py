@@ -17,7 +17,6 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         token_payload = self.request.auth
 
-        # Lấy user_id từ token
         token_user_id = token_payload.get("user_id")
         if not token_user_id:
             raise PermissionDenied("Invalid token: missing user_id")
@@ -25,13 +24,15 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
         if not hasattr(user, "role") or user.role != "SUPERVISOR":
             raise PermissionDenied("You are not allowed to access supervisor reports.")
 
-        # Lấy danh sách khóa học mà supervisor đang giám sát
         supervised_courses = user.supervised_courses.values_list("id", flat=True)
 
-        # Queryset mặc định
-        queryset = DailyReport.objects.filter(course_id__in=supervised_courses)
+        queryset = (
+            DailyReport.objects
+            .filter(course_id__in=supervised_courses)
+            .filter(status=1)
+            .select_related("course", "user")
+        )
 
-        # Optional filters
         course_id = self.request.query_params.get("course_id")
         filter_date = self.request.query_params.get("filter_date")
 
@@ -40,4 +41,5 @@ class SupervisorDailyReportViewSet(viewsets.ReadOnlyModelViewSet):
 
         if filter_date:
             queryset = queryset.filter(created_at__date=filter_date)
+
         return queryset

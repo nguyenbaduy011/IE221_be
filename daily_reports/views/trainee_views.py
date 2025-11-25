@@ -22,13 +22,18 @@ class TraineeDailyReportViewSet(viewsets.ModelViewSet):
         if not hasattr(user, "role") or user.role != "TRAINEE":
             raise PermissionDenied("You are not allowed to access trainee reports.")
 
-        queryset = DailyReport.objects.filter(user=user)
+        queryset = (
+            DailyReport.objects
+            .filter(user=user)
+            .select_related("course", "user")
+        )
 
         course_id = self.request.query_params.get("course_id")
         filter_date = self.request.query_params.get("filter_date")
 
         if course_id:
             queryset = queryset.filter(course_id=course_id)
+
         if filter_date:
             queryset = queryset.filter(created_at__date=filter_date)
 
