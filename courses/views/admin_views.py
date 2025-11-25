@@ -24,7 +24,6 @@ class AdminCourseListView(generics.ListAPIView):
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
 
-    # Nếu bạn muốn thêm tính năng tìm kiếm (Search)
     def get_queryset(self):
         queryset = super().get_queryset()
         search_query = self.request.query_params.get("search", None)

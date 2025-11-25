@@ -7,7 +7,7 @@ from users.models.user_subject import UserSubject
 from users.models.user_task import UserTask
 from courses.models.course_subject import CourseSubject
 from subjects.models.task import Task
-from subjects.models.category import Category  # Import Category
+from subjects.models.category import Category 
 
 from subjects.serializers.subject_serializers import SubjectSerializer
 from subjects.serializers.task_serializers import TaskSerializer
@@ -145,10 +145,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         """
         queryset = Task.objects.all()
 
-        # Filter by subject_id
         subject_id = self.request.query_params.get("subject_id")
         if subject_id:
-            # Lấy Task thuộc Subject gốc HOẶC Task thuộc các CourseSubject liên quan
             course_subject_ids = CourseSubject.objects.filter(
                 subject_id=subject_id
             ).values_list("id", flat=True)
@@ -161,7 +159,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 )
             )
 
-        # Search by name
         search_query = self.request.query_params.get("search")
         if search_query:
             queryset = queryset.filter(name__icontains=search_query)
@@ -176,14 +173,11 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 1. Tạo Task gốc
         task = serializer.save()
 
-        # 2. Logic "Thêm task đối với tất cả học viên"
         if task.taskable_type == Task.TaskType.SUBJECT:
             subject_id = task.taskable_id
 
-            # Lấy tất cả UserSubject liên quan
             active_user_subjects = UserSubject.objects.filter(
                 course_subject__subject_id=subject_id
             ).select_related(
@@ -191,17 +185,14 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
 
             user_tasks_to_create = []
-            processed_user_ids = set()  # Dùng set để theo dõi các user đã xử lý
+            processed_user_ids = set() 
 
             for user_subject in active_user_subjects:
                 user_id = user_subject.user.id
 
-                # BƯỚC QUAN TRỌNG: Kiểm tra trùng lặp trong danh sách đang xử lý
-                # Nếu user này đã được thêm vào list rồi thì bỏ qua bản ghi UserSubject thứ 2
                 if user_id in processed_user_ids:
                     continue
 
-                # Kiểm tra trong DB (đề phòng trường hợp task cũ assign lại)
                 if not UserTask.objects.filter(user_id=user_id, task=task).exists():
                     user_tasks_to_create.append(
                         UserTask(
@@ -211,10 +202,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                             status=UserTask.Status.NOT_DONE,
                         )
                     )
-                    # Đánh dấu đã xử lý user này
                     processed_user_ids.add(user_id)
 
-            # Bulk create với ignore_conflicts=True (trên Postgres) để an toàn tuyệt đối
             if user_tasks_to_create:
                 UserTask.objects.bulk_create(
                     user_tasks_to_create, ignore_conflicts=True
@@ -238,15 +227,12 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        # Khi xóa Task gốc, Django cascade sẽ tự động xóa UserTask liên quan
-        # (do on_delete=models.CASCADE trong UserTask model)
         self.perform_destroy(instance)
         return Response(
             {"message": "Task deleted successfully"}, status=status.HTTP_204_NO_CONTENT
         )
 
 
-# --- SUPERVISOR CATEGORY VIEWSET ---
 
 
 class SupervisorCategoryViewSet(viewsets.ModelViewSet):
@@ -300,6 +286,5 @@ class SubjectListView(generics.ListAPIView):
     serializer_class = SubjectSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
-    # Cấu hình tìm kiếm
     filter_backends = [filters.SearchFilter]
     search_fields = ["name"]

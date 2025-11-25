@@ -13,12 +13,9 @@ from subjects.views.trainee_views import (
     TraineeSubjectDetailView,
 )
 
-# --- Shared Router ---
-# TaskViewSet dùng chung, URL dạng: /tasks/
 router = DefaultRouter()
 router.register(r"tasks", TaskViewSet, basename="task")
 
-# --- Supervisor Specific Router ---
 supervisor_router = DefaultRouter()
 supervisor_router.register(
     r"categories", SupervisorCategoryViewSet, basename="supervisor-category"
@@ -26,11 +23,8 @@ supervisor_router.register(
 
 
 urlpatterns = [
-    # --- Include Shared Router URLs ---
     path("", include(router.urls)),
-    # --- Include Supervisor Router URLs ---
     path("supervisor/", include(supervisor_router.urls)),
-    # --- Supervisor Namespace (Các APIView thủ công) ---
     path(
         "supervisor/subjects/",
         SupervisorSubjectListView.as_view(),
@@ -41,7 +35,6 @@ urlpatterns = [
         SupervisorSubjectDetailView.as_view(),
         name="supervisor-subject-detail",
     ),
-    # --- Trainee Namespace ---
     path(
         "trainee/subjects/",
         TraineeSubjectListView.as_view(),

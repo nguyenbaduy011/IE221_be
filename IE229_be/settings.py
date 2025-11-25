@@ -14,31 +14,22 @@ from pathlib import Path
 import environ
 import os
 
-# Khởi tạo biến môi trường
 env = environ.Env(
     DEBUG=(bool, False)
 )
 
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Đọc file .env
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-@7j6!t%#l&0+yl@$%aj7(!ckzu@f7hyqf%#ky5wd=)_cipc!0y'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
-# Application definition
 
 INSTALLED_APPS = [
     "corsheaders",
@@ -86,10 +77,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    # Access Token ngắn: 5 phút
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
 
-    # Refresh Token mặc định (khi không tick remember me): 1 ngày
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 
     'ROTATE_REFRESH_TOKENS': False,
@@ -122,7 +111,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'IE229_be.wsgi.application'
 
 
-# Lấy giá trị từ .env
 DEBUG = env("DEBUG")
 SECRET_KEY = env("SECRET_KEY")
 
@@ -137,8 +125,6 @@ DATABASES = {
     }
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -156,8 +142,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -168,13 +152,8 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = 'static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

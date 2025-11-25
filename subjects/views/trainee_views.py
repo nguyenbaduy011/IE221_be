@@ -31,8 +31,6 @@ class TraineeSubjectDetailView(APIView):
         if not subject:
             return Response({"detail": "Subject not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Logic ensure_user_enrollments (như file Ruby) nên được gọi ở đây
-        # ví dụ: ensure_trainee_enrollment(request.user, subject)
 
         serializer = self.serializer_class(subject)
         return Response(serializer.data, status=status.HTTP_200_OK)

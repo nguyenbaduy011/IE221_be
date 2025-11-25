@@ -84,14 +84,12 @@ class SupervisorCourseCreateView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         try:
-            # 1. Chuẩn hóa dữ liệu đầu vào từ FormData
             data = (
                 request.data.dict()
                 if hasattr(request.data, "dict")
                 else request.data.copy()
             )
 
-            # Nếu là FormData, dùng getlist để lấy trọn vẹn mảng subjects/supervisors
             if hasattr(request.data, "getlist"):
                 if "subjects" in request.data:
                     data["subjects"] = request.data.getlist("subjects")
@@ -103,13 +101,11 @@ class SupervisorCourseCreateView(generics.CreateAPIView):
                 {"detail": "Invalid data format"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 2. Đưa vào Serializer
         serializer = self.get_serializer(data=data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Lưu và trả về
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(
@@ -445,7 +441,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
         try:
             course = self.get_object()
 
-            # Validate input
             serializer = AddSubjectTaskSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -457,16 +452,13 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 final_tasks_for_user = []
 
-                # CASE A: THÊM SUBJECT CÓ SẴN
                 if subject_id:
                     subject = Subject.objects.get(pk=subject_id)
-                    # Tạo liên kết Course - Subject
                     course_subject = CourseSubject.objects.create(
                         course=course,
                         subject=subject,
                     )
 
-                    # Clone Tasks
                     template_tasks = Task.objects.filter(
                         taskable_type=Task.TaskType.SUBJECT, taskable_id=subject.id
                     )
@@ -478,7 +470,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                         )
                         for t in template_tasks
                     ]
-                    # Task mới từ input
                     for name in task_names:
                         new_tasks.append(
                             Task(
@@ -492,7 +483,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                         final_tasks_for_user = Task.objects.bulk_create(new_tasks)
                     message = "Added existing subject successfully."
 
-                # CASE B: TẠO SUBJECT MỚI
                 else:
                     subject = Subject.objects.create(
                         name=data["name"],
@@ -518,7 +508,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                         final_tasks_for_user = Task.objects.bulk_create(new_tasks)
                     message = "Created new subject successfully."
 
-                # --- ĐỒNG BỘ CHO TRAINEE (QUAN TRỌNG) ---
                 existing_user_courses = UserCourse.objects.filter(course=course)
                 if existing_user_courses.exists():
                     new_us = []
@@ -545,7 +534,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             return Response({"message": message}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            # In lỗi ra terminal để debug
             import traceback
 
             traceback.print_exc()
@@ -581,7 +569,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
                 {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # partial=True cho phép chỉ gửi những trường cần sửa (ví dụ chỉ sửa tên)
         serializer = self.serializer_class(course, data=request.data, partial=True)
 
         if serializer.is_valid():
@@ -594,18 +581,12 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     def get_trainees(self, request, pk=None):
         course = self.get_object()
 
-        # Cách 1: Lấy User thông qua quan hệ ngược user_courses
-        # Đảm bảo UserCourse có related_name='user_courses' tới Course hoặc query thủ công:
-
-        # Lấy tất cả User ID đang tham gia khóa học này
         user_ids = UserCourse.objects.filter(course=course).values_list(
             "user_id", flat=True
         )
 
-        # Lấy danh sách User object
         trainees = CustomUser.objects.filter(id__in=user_ids)
 
-        # Serialize
         serializer = UserBasicSerializer(trainees, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -613,12 +594,10 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     def get_subjects(self, request, pk=None):
         course = self.get_object()
 
-        # Lấy danh sách và sắp xếp
         course_subjects = CourseSubject.objects.filter(course=course).order_by(
             "position"
         )
 
-        # Dùng Serializer có nested subject
         serializer = CourseSubjectSerializer(course_subjects, many=True)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -639,12 +618,10 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
 
         try:
             with transaction.atomic():
-                # Duyệt qua danh sách gửi lên và update position
                 for item in items:
                     cs_id = item.get("id")
                     new_pos = item.get("position")
 
-                    # Update từng cái (hoặc dùng bulk_update nếu muốn tối ưu hơn nữa)
                     CourseSubject.objects.filter(id=cs_id, course=course).update(
                         position=new_pos
                     )
@@ -661,7 +638,6 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     def add_task(self, request, pk=None):
         course = self.get_object()
 
-        # Ép kiểu int để tránh lỗi
         try:
             cs_id = int(request.data.get("course_subject_id"))
         except (TypeError, ValueError):
@@ -673,23 +649,18 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Missing info"}, status=400)
 
         try:
-            # 1. Lấy CourseSubject để xác định Subject gốc
             course_subject = CourseSubject.objects.get(id=cs_id, course=course)
 
-            # Lấy Subject gốc ra
             target_subject = course_subject.subject
 
             with transaction.atomic():
-                # 2. Tạo Task gắn vào SUBJECT GỐC (Thay đổi theo yêu cầu)
                 task = Task.objects.create(
                     name=name,
-                    taskable_type=Task.TaskType.SUBJECT,  # <--- SỬA: Type là SUBJECT
-                    taskable_id=target_subject.id,  # <--- SỬA: ID của Subject gốc
+                    taskable_type=Task.TaskType.SUBJECT, 
+                    taskable_id=target_subject.id, 
                     position=0,
                 )
 
-                # 3. Đồng bộ UserTask cho các học viên đang học môn này
-                # (Vẫn phải tìm qua CourseSubject để biết ai đang học khóa này)
                 user_subjects = UserSubject.objects.filter(
                     course_subject=course_subject
                 )
@@ -1021,8 +992,6 @@ class CourseSubjectUpdateView(generics.UpdateAPIView):
     serializer_class = CourseSubjectSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
 
-
-# --- THÊM CLASS MỚI NÀY ---
 class SupervisorTaskDetailView(APIView):
     """
     API: /api/supervisor/tasks/<pk>/detail/

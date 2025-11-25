@@ -1,4 +1,3 @@
-# authen/views.py
 from rest_framework import viewsets, permissions, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,11 +26,8 @@ class RegistrationViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = self.serializer_class(data=request.data)
         
-        # Thêm raise_exception=True. 
-        # Nếu lỗi, nó sẽ tự ném ValidationError -> custom_exception_handler sẽ bắt và format lại.
         serializer.is_valid(raise_exception=True) 
         
-        # Nếu chạy xuống được đây nghĩa là dữ liệu đã đúng (không cần indentation trong if nữa)
         user = serializer.save()
         
         try:
@@ -65,12 +61,9 @@ class ActivateAccountView(APIView):
         except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
             user = None
 
-        # --- SỬA LỖI LOGIC Ở ĐÂY ---
-        # Bạn phải kiểm tra user và token, chứ không dùng biến 'success' chưa định nghĩa
         if user is not None and default_token_generator.check_token(user, token):
             user.is_active = True
             user.save()
-            # Renderer sẽ biến cái này thành: { status: success, message: "...", data: null }
             return Response({"message": "Tài khoản kích hoạt thành công!"}, status=status.HTTP_200_OK)
 
         raise ValidationError({"token": "Link kích hoạt không hợp lệ hoặc đã hết hạn."})
@@ -95,7 +88,6 @@ class ResendActivationEmailView(generics.GenericAPIView):
             except Exception as e:
                 print(f"Lỗi gửi lại mail: {e}")
         
-        # Renderer xử lý message này
         return Response(
             {"message": "Nếu tài khoản tồn tại và chưa kích hoạt, email mới đã được gửi."},
             status=status.HTTP_200_OK
@@ -103,8 +95,6 @@ class ResendActivationEmailView(generics.GenericAPIView):
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
-    # View này trả về dict (access, refresh, user).
-    # Renderer sẽ bọc nó vào 'data'.
 
 class LogoutView(generics.GenericAPIView):
     serializer_class = LogoutSerializer
@@ -115,7 +105,6 @@ class LogoutView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # LƯU Ý: Đổi sang 200 OK và có message để Frontend dễ xử lý đồng nhất
         return Response({"message": "Đăng xuất thành công."}, status=status.HTTP_200_OK)
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -127,5 +116,4 @@ class ChangePasswordView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         super().update(request, *args, **kwargs)
-        # Renderer sẽ xử lý message này
         return Response({"message": "Đổi mật khẩu thành công."}, status=status.HTTP_200_OK)
