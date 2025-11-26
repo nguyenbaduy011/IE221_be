@@ -39,6 +39,11 @@ urlpatterns = [
         name="supervisor-subject-detail",
     ),
     path(
+        "supervisor/subjects/",
+        SubjectListView.as_view(),
+        name="supervisor-subject-list",
+    ),
+    path(
         "trainee/subjects/",
         TraineeSubjectListView.as_view(),
         name="trainee-subject-list",
@@ -49,5 +54,5 @@ urlpatterns = [
         name="trainee-subject-detail",
     ),
     path("admin/", include(admin_router.urls)),
-    path("admin/subjects/", SubjectListView.as_view(), name="subject-list"),
+    path("admin/subjects/", SubjectListView.as_view(), name="admin-subject-list"),
 ]
