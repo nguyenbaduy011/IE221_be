@@ -142,24 +142,39 @@ class CourseCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_subjects(self, value):
-        valid_ids = []
-        for sid in value:
-            if Subject.objects.filter(id=sid).exists():
-                valid_ids.append(sid)
+        existing_ids = set(
+            Subject.objects.filter(id__in=value).values_list("id", flat=True)
+        )
+
+        valid_ids = [sid for sid in value if sid in existing_ids]
+
+        if len(valid_ids) != len(value):
+            raise serializers.ValidationError("Một số Subject ID không tồn tại.")
+
         return valid_ids
 
     def validate_supervisors(self, value):
-        valid_ids = []
-        for uid in value:
-            if CustomUser.objects.filter(id=uid, role="SUPERVISOR").exists():
-                valid_ids.append(uid)
+        existing_ids = set(
+            CustomUser.objects.filter(id__in=value).values_list("id", flat=True)
+        )
+
+        valid_ids = [sid for sid in value if sid in existing_ids]
+
+        if len(valid_ids) != len(value):
+            raise serializers.ValidationError("Một số User ID không tồn tại.")
+
         return valid_ids
 
     def validate_categories(self, value):
-        valid_ids = []
-        for cid in value:
-            if Category.objects.filter(id=cid).exists():
-                valid_ids.append(cid)
+        existing_ids = set(
+            Category.objects.filter(id__in=value).values_list("id", flat=True)
+        )
+
+        valid_ids = [sid for sid in value if sid in existing_ids]
+
+        if len(valid_ids) != len(value):
+            raise serializers.ValidationError("Một số Category ID không tồn tại.")
+
         return valid_ids
 
     @transaction.atomic

@@ -59,7 +59,7 @@ class SupervisorCourseDetailView(APIView):
 
     def get(self, request, course_id):
         user = self.request.user
-        course = get_course_by_id(course_id)
+        course = Course.objects.get(pk=course_id)
         if not course:
             return Response(
                 {"detail": "Course not found."}, status=status.HTTP_404_NOT_FOUND
@@ -67,7 +67,9 @@ class SupervisorCourseDetailView(APIView):
 
         if (
             getattr(user, "role", None) != "ADMIN"
-            and not course.course_supervisors.filter(supervisor=user).exists()
+            and not CourseSupervisor.objects.filter(
+                course=course, supervisor=user
+            ).exists()
         ):
             return Response(
                 {"detail": "You do not have permission to view this course."},
@@ -75,7 +77,7 @@ class SupervisorCourseDetailView(APIView):
             )
 
         serializer = self.serializer_class(course)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({"data": serializer.data}, status=status.HTTP_200_OK)
 
 
 class SupervisorCourseCreateView(generics.CreateAPIView):
@@ -826,7 +828,7 @@ class SupervisorUserSubjectDetailView(APIView):
                 "id": t.id,
                 "name": t.task.name if t.task else "Unnamed Task",
                 "status": (
-                    "DONE" if (t.status == 1 or t.status == "COMPLETED") else "NOT_DONE"
+                    "DONE" if (t.status == 1 or t.status == "DONE") else "NOT_DONE"
                 ),
             }
             for t in tasks_qs
@@ -892,7 +894,7 @@ class SupervisorSubjectTaskCreateView(APIView):
                 user_tasks = []
                 for us in related_user_subjects:
                     user_tasks.append(
-                        UserTask(user=us.user, task=new_task, user_subject=us, status=1)
+                        UserTask(user=us.user, task=new_task, user_subject=us, status=0)
                     )
 
                 if user_tasks:
@@ -995,7 +997,7 @@ class SupervisorUserSubjectCompleteView(APIView):
                 user_subject.save()
 
                 UserTask.objects.filter(user_subject=user_subject).update(
-                    status=UserTask.Status.COMPLETED
+                    status=UserTask.Status.DONE
                 )
 
             return Response(

@@ -177,6 +177,11 @@ urlpatterns = [
         name="admin-course-trainees",
     ),
     path(
+        "supervisor/courses/<int:pk>/trainees/",
+        CourseManagementViewSet.as_view({"get": "get_trainees"}),
+        name="supervisor-course-trainees",
+    ),
+    path(
         "admin/courses/<int:pk>/subjects/",
         CourseManagementViewSet.as_view({"get": "get_subjects"}),
         name="admin-course-subjects",
