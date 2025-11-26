@@ -5,6 +5,8 @@ from courses.models.course_model import Course
 from users.models.user_course import UserCourse
 from courses.models.course_subject import CourseSubject
 from courses.models.course_supervisor_model import CourseSupervisor
+from subjects.models.category import Category
+from courses.models.course_category import CourseCategory
 from subjects.models.task import Task
 from subjects.models.subject import Subject
 from courses.serializers.course_supervisor_serializer import CourseSupervisorSerializer
@@ -33,6 +35,12 @@ class SubjectDetailSerializer(serializers.ModelSerializer):
         return TaskSerializer(obj.tasks, many=True).data
 
 
+class CategoryBasicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name"]
+
+
 class CourseSupervisorSerializer(serializers.ModelSerializer):
     supervisor = UserBasicSerializer(read_only=True)
 
@@ -59,6 +67,7 @@ class CourseSubjectSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     supervisor_count = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
+    categories = serializers.SerializerMethodField()
 
     supervisors = CourseSupervisorSerializer(many=True, read_only=True)
 
@@ -80,6 +89,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "updated_at",
             "supervisors",
             "course_subjects",
+            "categories",
             "supervisor_count",
             "member_count",
         ]
@@ -89,6 +99,10 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         return UserCourse.objects.filter(course=obj).count()
+
+    def get_categories(self, obj):
+        categories = Category.objects.filter(coursecategory__course=obj)
+        return CategoryBasicSerializer(categories, many=True).data
 
 
 class CourseCreateSerializer(serializers.ModelSerializer):
@@ -104,12 +118,18 @@ class CourseCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True,
     )
+    categories = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+    )
     image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Course
         fields = [
-            "id", 
+            "id",
             "name",
             "link_to_course",
             "image",
@@ -118,6 +138,7 @@ class CourseCreateSerializer(serializers.ModelSerializer):
             "status",
             "subjects",
             "supervisors",
+            "categories",
         ]
 
     def validate_subjects(self, value):
@@ -134,11 +155,19 @@ class CourseCreateSerializer(serializers.ModelSerializer):
                 valid_ids.append(uid)
         return valid_ids
 
+    def validate_categories(self, value):
+        valid_ids = []
+        for cid in value:
+            if Category.objects.filter(id=cid).exists():
+                valid_ids.append(cid)
+        return valid_ids
+
     @transaction.atomic
     def create(self, validated_data):
         print("--- [DEBUG] SERIALIZER CREATE ---")
         subjects_ids = validated_data.pop("subjects", [])
         supervisors_ids = validated_data.pop("supervisors", [])
+        categories_ids = validated_data.pop("categories", [])
 
         course = Course.objects.create(**validated_data)
 
@@ -148,6 +177,12 @@ class CourseCreateSerializer(serializers.ModelSerializer):
                 for uid in supervisors_ids
             ]
             CourseSupervisor.objects.bulk_create(links)
+
+        if categories_ids:
+            cat_links = [
+                CourseCategory(course=course, category_id=cid) for cid in categories_ids
+            ]
+            CourseCategory.objects.bulk_create(cat_links)
 
         if subjects_ids:
             for idx, sub_id in enumerate(subjects_ids):
@@ -171,6 +206,28 @@ class CourseCreateSerializer(serializers.ModelSerializer):
                 Task.objects.bulk_create(new_tasks)
 
         return course
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        categories_ids = validated_data.pop("categories", None)
+
+        # Cập nhật các trường thông thường
+        instance = super().update(instance, validated_data)
+
+        # Nếu có gửi field categories lên (kể cả list rỗng) thì mới cập nhật
+        if categories_ids is not None:
+            # Xóa các liên kết cũ
+            CourseCategory.objects.filter(course=instance).delete()
+
+            # Tạo liên kết mới
+            if categories_ids:
+                cat_links = [
+                    CourseCategory(course=instance, category_id=cid)
+                    for cid in categories_ids
+                ]
+                CourseCategory.objects.bulk_create(cat_links)
+
+        return instance
 
 
 class UserCourseMemberSerializer(serializers.ModelSerializer):

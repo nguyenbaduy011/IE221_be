@@ -20,7 +20,10 @@ supervisor_router = DefaultRouter()
 supervisor_router.register(
     r"categories", SupervisorCategoryViewSet, basename="supervisor-category"
 )
-
+admin_router = DefaultRouter()
+admin_router.register(
+    r"categories", SupervisorCategoryViewSet, basename="admin-category"
+)
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -45,5 +48,6 @@ urlpatterns = [
         TraineeSubjectDetailView.as_view(),
         name="trainee-subject-detail",
     ),
+    path("admin/", include(admin_router.urls)),
     path("admin/subjects/", SubjectListView.as_view(), name="subject-list"),
 ]
