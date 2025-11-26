@@ -317,9 +317,27 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["delete"], url_path="remove-supervisor")
     def remove_supervisor(self, request, pk=None):
         course = self.get_object()
+
+        # [NEW] Kiểm tra quyền Creator
+        # Chỉ Creator mới được xóa Supervisor khác
+        if request.user != course.creator:
+            return Response(
+                {"detail": "Only the course creator can remove supervisors."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = DeleteIDSerializer(data=request.data)
         if serializer.is_valid():
             supervisor_id = serializer.validated_data["id"]
+
+            if supervisor_id_to_remove == request.user.id:
+                return Response(
+                    {
+                        "detail": "You cannot remove yourself from the course supervisors."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             deleted, _ = CourseSupervisor.objects.filter(
                 course=course, supervisor_id=supervisor_id
             ).delete()
@@ -656,8 +674,8 @@ class CourseManagementViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 task = Task.objects.create(
                     name=name,
-                    taskable_type=Task.TaskType.SUBJECT, 
-                    taskable_id=target_subject.id, 
+                    taskable_type=Task.TaskType.SUBJECT,
+                    taskable_id=target_subject.id,
                     position=0,
                 )
 
@@ -700,7 +718,9 @@ class SupervisorDashboardStatsView(APIView):
         ).count()
         upcoming_count = my_courses.filter(status=Course.Status.NOT_STARTED).count()
         finished_count = my_courses.filter(status=Course.Status.FINISHED).count()
-        supervisor_count = CustomUser.objects.filter(role=CustomUser.Role.SUPERVISOR).count()
+        supervisor_count = CustomUser.objects.filter(
+            role=CustomUser.Role.SUPERVISOR
+        ).count()
         total_trainees = (
             UserCourse.objects.filter(course__in=my_courses)
             .values("user")
@@ -759,7 +779,7 @@ class SupervisorDashboardStatsView(APIView):
                 "completion_rate": completion_rate,
                 "chart_data": chart_data,
                 "recent_activities": activities,
-                "total_supervisors": supervisor_count
+                "total_supervisors": supervisor_count,
             },
             status=status.HTTP_200_OK,
         )
@@ -991,6 +1011,7 @@ class CourseSubjectUpdateView(generics.UpdateAPIView):
     queryset = CourseSubject.objects.all()
     serializer_class = CourseSubjectSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrSupervisor]
+
 
 class SupervisorTaskDetailView(APIView):
     """

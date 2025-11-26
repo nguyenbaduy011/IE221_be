@@ -25,7 +25,7 @@ urlpatterns = [
         SupervisorDashboardStatsView.as_view(),
         name="supervisor-stats",
     ),
-     path(
+    path(
         "admin/stats/",
         AdminDashboardStatsView.as_view(),
         name="admin-stats",
@@ -191,6 +191,11 @@ urlpatterns = [
         name="admin-course-subject-update",
     ),
     path(
+        "supervisor/course-subjects/<int:pk>/",
+        CourseSubjectUpdateView.as_view(),
+        name="supervisor-course-subject-update",
+    ),
+    path(
         "admin/courses/<int:pk>/add-task/",
         CourseManagementViewSet.as_view({"post": "add_task"}),
         name="admin-course-add-task",
@@ -199,5 +204,20 @@ urlpatterns = [
         "admin/tasks/<int:pk>/detail/",
         SupervisorTaskDetailView.as_view(),
         name="admin-task-detail",
+    ),
+    path(
+        "supervisor/courses/<int:pk>/subjects/",
+        CourseManagementViewSet.as_view({"get": "get_subjects"}),
+        name="supervisor-course-subjects",
+    ),
+    path(
+        "supervisor/courses/<int:pk>/reorder-subjects/",
+        CourseManagementViewSet.as_view({"post": "reorder_subjects"}),
+        name="supervisor-course-reorder-subjects",
+    ),
+    path(
+        "supervisor/courses/<int:pk>/add-task/",
+        CourseManagementViewSet.as_view({"post": "add_task"}),
+        name="supervisor-course-add-task",
     ),
 ]
