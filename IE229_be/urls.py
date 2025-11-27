@@ -7,6 +7,9 @@ from users.views import CommentViewSet
 from daily_reports.views.trainee_views import TraineeDailyReportViewSet
 from daily_reports.views.supervisor_views import SupervisorDailyReportViewSet
 from daily_reports.views.admin_views import AdminDailyReportViewSet
+from django.conf import settings           
+from django.conf.urls.static import static  
+
 
 router = DefaultRouter()
 router.register(
@@ -43,3 +46,6 @@ urlpatterns = [
         ),
     ),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

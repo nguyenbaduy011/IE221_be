@@ -331,24 +331,21 @@ class TraineeSubjectActionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return UserSubject.objects.filter(user=self.request.user)
 
-    # def get_object(self):
-    #     """
-    #     Ghi đè phương thức lấy object chi tiết.
-    #     Thay vì tìm theo UserSubject.id (mặc định),
-    #     ta tìm theo course_subject_id (do frontend gửi lên) + user hiện tại.
-    #     """
-    #     # Lấy ID từ URL (lúc này ID trên URL là CourseSubject ID)
-    #     lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
-    #     course_subject_id = self.kwargs[lookup_url_kwarg]
+    def get_object(self):
+        """
+        Ghi đè phương thức lấy object chi tiết.
+        Thay vì tìm theo UserSubject.id (mặc định),
+        ta tìm theo course_subject_id (do frontend gửi lên) + user hiện tại.
+        """
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        course_subject_id = self.kwargs[lookup_url_kwarg]
 
-    #     # Tìm UserSubject tương ứng với CourseSubject đó và User đang login
-    #     obj = get_object_or_404(
-    #         UserSubject, user=self.request.user, course_subject_id=course_subject_id
-    #     )
+        obj = get_object_or_404(
+            UserSubject, user=self.request.user, course_subject_id=course_subject_id
+        )
 
-    #     # Kiểm tra quyền (check permissions)
-    #     self.check_object_permissions(self.request, obj)
-    #     return obj
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
