@@ -97,6 +97,8 @@ class SupervisorCourseCreateView(generics.CreateAPIView):
                     data["subjects"] = request.data.getlist("subjects")
                 if "supervisors" in request.data:
                     data["supervisors"] = request.data.getlist("supervisors")
+                if "categories" in request.data:
+                    data["categories"] = request.data.getlist("categories")
 
         except Exception as e:
             return Response(
